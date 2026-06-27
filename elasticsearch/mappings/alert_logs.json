@@ -1,0 +1,10 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "alert_id": { "type": "keyword" },
+      "log_id": { "type": "keyword" },
+      "created_at": { "type": "date" }
+    }
+  }
+}

@@ -38,6 +38,8 @@ frontend/node_modules/
 
 # Elasticsearch data
 es_data/
+elasticsearch/exports_*/
+elasticsearch/venv/
 
 # IDE/editor
 *.swp

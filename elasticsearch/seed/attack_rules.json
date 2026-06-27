@@ -1,0 +1,62 @@
+[
+  {
+    "id": "rule_001",
+    "attack_type": "BRUTE_FORCE",
+    "rule_name": "Détection Brute Force",
+    "description": "5 tentatives échouées en 60 secondes",
+    "threshold": 5,
+    "time_window": 60,
+    "severity": "CRITICAL",
+    "enabled": true,
+    "created_at": "2026-06-24T09:37:53.934680",
+    "_id": "zozH-J4BaNdn4BihVsuR"
+  },
+  {
+    "id": "rule_002",
+    "attack_type": "LATERAL_MOVEMENT",
+    "rule_name": "Détection Mouvement Latéral",
+    "description": "Même utilisateur sur 3 machines en 5 min",
+    "threshold": 3,
+    "time_window": 300,
+    "severity": "HIGH",
+    "enabled": true,
+    "created_at": "2026-06-24T09:37:53.934697",
+    "_id": "z4zH-J4BaNdn4BihVsug"
+  },
+  {
+    "id": "rule_003",
+    "attack_type": "OFF_HOURS",
+    "rule_name": "Connexion Hors Horaires",
+    "description": "Connexion entre 00h et 05h",
+    "threshold": 1,
+    "time_window": 0,
+    "severity": "HIGH",
+    "enabled": true,
+    "created_at": "2026-06-24T09:37:53.934700",
+    "_id": "0IzH-J4BaNdn4BihVsu9"
+  },
+  {
+    "id": "rule_004",
+    "attack_type": "DATA_EXFILTRATION",
+    "rule_name": "Exfiltration de Données",
+    "description": "Plus de 100MB en 1 heure",
+    "threshold": 100,
+    "time_window": 3600,
+    "severity": "CRITICAL",
+    "enabled": true,
+    "created_at": "2026-06-24T09:37:53.934703",
+    "_id": "0YzH-J4BaNdn4BihVsvH"
+  },
+  {
+    "id": "rule_005",
+    "attack_type": "RECONNAISSANCE",
+    "rule_name": "Reconnaissance Réseau",
+    "description": "Scan de 5 ports en 30s",
+    "threshold": 5,
+    "time_window": 30,
+    "severity": "HIGH",
+    "enabled": true,
+    "created_at": "2026-06-24T09:37:53.934707",
+    "_id": "0ozH-J4BaNdn4BihVsvR"
+  }
+]

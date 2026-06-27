@@ -1,0 +1,26 @@
+[
+  {
+    "id": "pb_001",
+    "attack_type": "BRUTE_FORCE",
+    "action_name": "BLOCK_IP",
+    "description": "Bloquer l'IP source pendant 1 heure",
+    "is_admin": true,
+    "_id": "04zH-J4BaNdn4BihWMt0"
+  },
+  {
+    "id": "pb_002",
+    "attack_type": "BRUTE_FORCE",
+    "action_name": "NOTIFY_SOC",
+    "description": "Notifier l'équipe SOC par email",
+    "is_admin": false,
+    "_id": "1IzH-J4BaNdn4BihWMuB"
+  },
+  {
+    "id": "pb_003",
+    "attack_type": "LATERAL_MOVEMENT",
+    "action_name": "DISABLE_USER",
+    "description": "Désactiver le compte utilisateur",
+    "is_admin": true,
+    "_id": "1YzH-J4BaNdn4BihWMuR"
+  }
+]

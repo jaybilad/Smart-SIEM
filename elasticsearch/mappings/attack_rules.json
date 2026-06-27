@@ -1,0 +1,15 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "attack_type": { "type": "keyword" },
+      "rule_name": { "type": "keyword" },
+      "description": { "type": "text" },
+      "threshold": { "type": "integer" },
+      "time_window": { "type": "integer" },
+      "severity": { "type": "keyword" },
+      "enabled": { "type": "boolean" },
+      "created_at": { "type": "date" }
+    }
+  }
+}

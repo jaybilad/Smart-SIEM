@@ -1,0 +1,11 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "attack_type": { "type": "keyword" },
+      "action_name": { "type": "keyword" },
+      "description": { "type": "text" },
+      "is_admin": { "type": "boolean" }
+    }
+  }
+}
