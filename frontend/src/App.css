@@ -1,0 +1,332 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root {
+  /* ──────────────────────────────────────────────────────────────────────
+     1. COULEURS PRIMAIRES
+     ────────────────────────────────────────────────────────────────────── */
+
+  /* Cyan (Principal) */
+  --color-cyan-50: rgba(0, 242, 254, 0.05);
+  --color-cyan-100: rgba(0, 242, 254, 0.1);
+  --color-cyan-200: rgba(0, 242, 254, 0.2);
+  --color-cyan-300: rgba(0, 242, 254, 0.3);
+  --color-cyan-400: rgba(0, 242, 254, 0.4);
+  --color-cyan-500: rgba(0, 242, 254, 0.5);
+  --color-cyan-600: rgba(0, 242, 254, 0.6);
+  --color-cyan-700: rgba(0, 242, 254, 0.7);
+  --color-cyan-800: rgba(0, 242, 254, 0.8);
+  --color-cyan-900: rgba(0, 242, 254, 0.9);
+  --color-cyan-pure: #00f2fe;
+
+  /* Purple/Magenta (Secondaire) */
+  --color-purple-50: rgba(155, 81, 224, 0.05);
+  --color-purple-100: rgba(155, 81, 224, 0.1);
+  --color-purple-200: rgba(155, 81, 224, 0.2);
+  --color-purple-300: rgba(155, 81, 224, 0.3);
+  --color-purple-400: rgba(155, 81, 224, 0.4);
+  --color-purple-500: rgba(155, 81, 224, 0.5);
+  --color-purple-600: rgba(155, 81, 224, 0.6);
+  --color-purple-700: rgba(155, 81, 224, 0.7);
+  --color-purple-800: rgba(155, 81, 224, 0.8);
+  --color-purple-900: rgba(155, 81, 224, 0.9);
+  --color-purple-pure: #9b51e0;
+
+  /* Red/Alert */
+  --color-red-50: rgba(239, 68, 68, 0.05);
+  --color-red-100: rgba(239, 68, 68, 0.1);
+  --color-red-200: rgba(239, 68, 68, 0.2);
+  --color-red-300: rgba(239, 68, 68, 0.3);
+  --color-red-400: rgba(239, 68, 68, 0.4);
+  --color-red-500: rgba(239, 68, 68, 0.5);
+  --color-red-600: rgba(239, 68, 68, 0.6);
+  --color-red-700: rgba(239, 68, 68, 0.7);
+  --color-red-800: rgba(239, 68, 68, 0.8);
+  --color-red-900: rgba(239, 68, 68, 0.9);
+  --color-red-pure: #ef4444;
+
+  /* Green/Success */
+  --color-green-50: rgba(16, 185, 129, 0.05);
+  --color-green-100: rgba(16, 185, 129, 0.1);
+  --color-green-200: rgba(16, 185, 129, 0.2);
+  --color-green-300: rgba(16, 185, 129, 0.3);
+  --color-green-400: rgba(16, 185, 129, 0.4);
+  --color-green-500: rgba(16, 185, 129, 0.5);
+  --color-green-600: rgba(16, 185, 129, 0.6);
+  --color-green-700: rgba(16, 185, 129, 0.7);
+  --color-green-800: rgba(16, 185, 129, 0.8);
+  --color-green-900: rgba(16, 185, 129, 0.9);
+  --color-green-pure: #10b981;
+
+  /* Slate/Neutral */
+  --color-slate-200: rgba(148, 163, 184, 0.2);
+  --color-slate-300: rgba(148, 163, 184, 0.3);
+  --color-slate-400: rgba(148, 163, 184, 0.4);
+  --color-slate-500: rgba(148, 163, 184, 0.5);
+  --color-slate-600: rgba(148, 163, 184, 0.6);
+  --color-slate-700: rgba(148, 163, 184, 0.7);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     2. COULEURS DE FOND
+     ────────────────────────────────────────────────────────────────────── */
+
+  --bg-dark-primary: #0b0f1f;
+  --bg-dark-secondary: #05070f;
+  --bg-glass-dark: rgba(10, 15, 30, 0.97);
+  --bg-glass-secondary: rgba(5, 8, 18, 0.98);
+  --bg-input: rgba(255, 255, 255, 0.03);
+  --bg-input-focus: rgba(255, 255, 255, 0.05);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     3. BORDURES
+     ────────────────────────────────────────────────────────────────────── */
+
+  --border-light: rgba(255, 255, 255, 0.04);
+  --border-cyan-light: rgba(0, 242, 254, 0.08);
+  --border-cyan-medium: rgba(0, 242, 254, 0.35);
+  --border-cyan-dark: rgba(0, 242, 254, 0.75);
+  --border-purple-medium: rgba(155, 81, 224, 0.5);
+  --border-purple-dark: rgba(155, 81, 224, 0.65);
+  --border-red-medium: rgba(239, 68, 68, 0.18);
+  --border-red-dark: rgba(239, 68, 68, 0.65);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     4. OMBRES & GLOW
+     ────────────────────────────────────────────────────────────────────── */
+
+  /* Glow Cyan */
+  --glow-cyan-sm: 0 0 10px var(--color-cyan-700), 0 0 20px var(--color-cyan-300);
+  --glow-cyan-md: 0 0 18px var(--color-cyan-500);
+  --glow-cyan-lg: 0 0 35px var(--color-cyan-700), 0 0 90px var(--color-cyan-400);
+  --glow-cyan-xl: 0 0 50px var(--color-cyan-200), 0 0 100px var(--color-cyan-100), 0 30px 60px rgba(0, 0, 0, 0.6);
+
+  /* Glow Purple */
+  --glow-purple-sm: 0 0 10px var(--color-purple-700), 0 0 20px var(--color-purple-300);
+  --glow-purple-md: 0 0 20px var(--color-purple-300);
+
+  /* Glow Green */
+  --glow-green-md: 0 0 30px var(--color-green-500), 0 0 70px var(--color-green-200);
+
+  /* Glow Red */
+  --glow-red-sm: 0 0 6px var(--color-red-700);
+
+  /* Filter Shadow */
+  --filter-cyan-glow: drop-shadow(0 0 8px rgba(0, 242, 254, 0.9)) drop-shadow(0 0 18px rgba(0, 242, 254, 0.5));
+  --filter-cyan-light: drop-shadow(0 0 4px rgba(0, 242, 254, 0.6));
+  --filter-red-glow: drop-shadow(0 0 6px rgba(239, 68, 68, 0.7));
+
+  /* ──────────────────────────────────────────────────────────────────────
+     5. GRADIENTS
+     ────────────────────────────────────────────────────────────────────── */
+
+  --gradient-bg-main: radial-gradient(ellipse 120% 120% at 50% 50%, #0b0f1f 0%, #05070f 75%);
+  --gradient-bg-glass: linear-gradient(148deg, rgba(10, 15, 30, 0.97) 0%, rgba(5, 8, 18, 0.98) 100%);
+  --gradient-border-primary: linear-gradient(138deg, rgba(0, 242, 254, 0.7) 0%, rgba(155, 81, 224, 0.5) 45%, rgba(0, 242, 254, 0.25) 65%, rgba(155, 81, 224, 0.65) 100%);
+  --gradient-btn-primary: linear-gradient(90deg, #00f2fe 0%, #0070f3 60%, #6d28d9 100%);
+  --gradient-btn-loading: linear-gradient(90deg, rgba(0, 242, 254, 0.35), rgba(0, 112, 243, 0.35));
+  --gradient-btn-success: linear-gradient(90deg, #10b981, #059669);
+  --gradient-icon-bg: linear-gradient(135deg, rgba(0, 242, 254, 0.12) 0%, rgba(155, 81, 224, 0.1) 100%);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     6. TEXT SHADOWS
+     ────────────────────────────────────────────────────────────────────── */
+
+  --text-shadow-cyan: 0 0 20px rgba(0, 242, 254, 0.35);
+  --text-shadow-cyan-glow: 0 0 12px rgba(0, 242, 254, 0.7);
+  --text-shadow-red-pulse: 0 0 6px rgba(239, 68, 68, 0.3);
+  --text-shadow-red-pulse-strong: 0 0 14px rgba(239, 68, 68, 0.6);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     7. ANIMATIONS
+     ────────────────────────────────────────────────────────────────────── */
+
+  --duration-fast: 0.25s;
+  --duration-normal: 0.3s;
+  --duration-slow: 0.85s;
+  --timing-ease: ease;
+  --timing-ease-out: ease-out;
+  --timing-ease-in-out: ease-in-out;
+  --timing-cubic: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ──────────────────────────────────────────────────────────────────────
+     8. ESPACEMENTS
+     ────────────────────────────────────────────────────────────────────── */
+
+  --radius-sm: 11px;
+  --radius-md: 15px;
+  --radius-lg: 16px;
+  --backdrop-blur: blur(24px);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ANIMATIONS GLOBALES
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes glowPulseL {
+  0%, 100% {
+    opacity: 0.14;
+    transform: translate(-42%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.26;
+    transform: translate(-42%, -50%) scale(1.12);
+  }
+}
+
+@keyframes glowPulseR {
+  0%, 100% {
+    opacity: 0.12;
+    transform: translate(42%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.22;
+    transform: translate(42%, -50%) scale(1.08);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    top: -2px;
+    opacity: 0;
+  }
+  4% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 1;
+  }
+  100% {
+    top: 100vh;
+    opacity: 0;
+  }
+}
+
+@keyframes borderBreath {
+  0%, 100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmerBtn {
+  from {
+    left: -80%;
+  }
+  to {
+    left: 160%;
+  }
+}
+
+@keyframes successPop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes warnPulse {
+  0%, 100% {
+    text-shadow: var(--text-shadow-red-pulse);
+  }
+  50% {
+    text-shadow: var(--text-shadow-red-pulse-strong);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CLASSES UTILITAIRES
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.card-in {
+  animation: cardIn 0.85s var(--timing-cubic) both;
+}
+
+.border-breath {
+  animation: borderBreath 2.5s var(--timing-ease-in-out) infinite;
+}
+
+.scan-line {
+  animation: scanLine 12s linear infinite;
+}
+
+.warn-pulse {
+  animation: warnPulse 2s var(--timing-ease-in-out) infinite;
+}
+
+.success-pop {
+  animation: successPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.glow-pulse-left {
+  animation: glowPulseL 4.5s var(--timing-ease-in-out) infinite;
+}
+
+.glow-pulse-right {
+  animation: glowPulseR 5.5s var(--timing-ease-in-out) infinite;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STYLES GLOBAUX
+   ════════════════════════════════════════════════════════════════════════════ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg-dark-primary);
+  color: #fff;
+  min-height: 100vh; /* 💡 Ajoute ça pour forcer le plein écran */
+  margin: 0;         /* 💡 Évite les marges blanches parasites */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, textarea, select {
+  font-family: 'Courier New', monospace;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   FOCUS STATES
+   ════════════════════════════════════════════════════════════════════════════ */
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-cyan-pure);
+  outline-offset: 2px;
+}
+
+/* 💡 Ajoute aussi ce petit correctif pour l'id root principal de Vite */
+#root {
+  min-height: 100vh;
+  width: 100%;
+}
