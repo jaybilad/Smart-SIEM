@@ -74,7 +74,7 @@ Chaque fichier encapsule une feature complexe.
 
 - **`normalizer.py`** : Normalisation des logs (conversion en format standard)
 - **`correlation_engine.py`** : Corrélation d'événements pour détecter les attaques
-- **`bulk_indexer.py`** : Indexation en masse dans Elasticsearch (performance)
+- **`log_ingestion.py`** : Normalisation puis indexation ligne par ligne dans Elasticsearch
 - **`report_generator.py`** : Génération de rapports (PDF, CSV, etc.)
 - **`ueba.py`** : UEBA (User and Entity Behavior Analytics) - détection d'anomalies
 - **`soar_playbooks.py`** : Playbooks d'automatisation de réponse aux incidents
@@ -152,7 +152,7 @@ Sources de logs (serveurs, applications, équipements réseau)
     ↓
 Backend API (FastAPI)
     ├─→ Normalizer (normalisation des logs)
-    ├─→ Bulk Indexer (indexation Elasticsearch)
+    ├─→ Log Ingestion (indexation Elasticsearch ligne par ligne)
     ├─→ Correlation Engine (détection de menaces)
     ├─→ UEBA (détection d'anomalies)
     └─→ SOAR Playbooks (réponse automatisée)
