@@ -1,33 +1,14 @@
-import { useState } from "react";
-import { Database, HardDrive, Check, Lock} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Database, HardDrive, Check, Lock, Loader2 } from "lucide-react";
 import { LineChart, Line, Tooltip, ResponsiveContainer } from "recharts";
+import { adminApi, type InfraData } from "../../api/admin";
 
-const INGEST_DATA = [
-  { t: "14:50", v: 1240 }, { t: "14:51", v: 1890 }, { t: "14:52", v: 1560 },
-  { t: "14:53", v: 2340 }, { t: "14:54", v: 1780 }, { t: "14:55", v: 2100 },
-  { t: "14:56", v: 1650 }, { t: "14:57", v: 2890 }, { t: "14:58", v: 2200 },
-  { t: "14:59", v: 1980 },
-];
-
-const AUDIT_LOG = [
-  { ts: "2026-06-22T14:55:31.204Z", user: "l.santos", action: "Connexion réussie depuis session CLI",                     ip: "10.0.1.45"    },
-  { ts: "2026-06-22T14:48:17.891Z", user: "j.martin", action: "Modification du rôle de k.ibrahim → Inactif",             ip: "10.0.1.12"    },
-  { ts: "2026-06-22T14:33:02.445Z", user: "j.martin", action: "Connexion réussie",                                        ip: "10.0.1.12"    },
-  { ts: "2026-06-22T13:22:58.103Z", user: "l.santos", action: "Clôture alerte INC-2847 (Force Brute — Résolu)",           ip: "10.0.1.45"    },
-  { ts: "2026-06-22T12:10:44.778Z", user: "j.martin", action: "Création règle : \"Connexion Hors Horaires\"",             ip: "10.0.1.12"    },
-  { ts: "2026-06-22T11:55:19.332Z", user: "a.dupont", action: "Consultation logs Filiale Europe (2 847 événements)",      ip: "192.168.10.33"},
-  { ts: "2026-06-22T11:02:05.667Z", user: "j.martin", action: "Modification politique de rétention → 365 jours",         ip: "10.0.1.12"    },
-  { ts: "2026-06-22T10:34:22.119Z", user: "l.santos", action: "Création utilisateur p.novak (Lecteur / Filiale Europe)",  ip: "10.0.1.45"    },
-  { ts: "2026-06-22T09:45:08.902Z", user: "j.martin", action: "Désactivation règle ID-3 (Exfiltration DNS)",              ip: "10.0.1.12"    },
-  { ts: "2026-06-22T08:30:00.000Z", user: "SYSTEM",   action: "Purge automatique des logs > 365j (148 Go libérés)",      ip: "127.0.0.1"    },
-];
-
-function ChartTip({ active, payload, label }: any) {
+function ChartTip({ active, payload, label }: { active?: boolean; payload?: { stroke?: string; fill?: string; color?: string; name?: string; value?: number; dataKey?: string }[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-[#090e1b] border border-[#1a2540] rounded-md px-3 py-2 text-[11px] font-mono shadow-xl">
       <p className="text-slate-700 mb-1 pb-1 border-b border-[#1a2540]">{label}</p>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.stroke ?? p.fill ?? p.color }}>
           {p.name ?? p.dataKey}:{" "}
           <span className="font-semibold">{typeof p.value === "number" ? p.value.toLocaleString("fr-FR") : p.value}</span>
@@ -38,16 +19,33 @@ function ChartTip({ active, payload, label }: any) {
 }
 
 export default function InfraScreen() {
-  const [retention, setRetention] = useState(365);
-  const [sealed, setSealed] = useState(false);
-  const [sealTs, setSealTs] = useState("");
+  const [data, setData] = useState<InfraData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    adminApi.infra()
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur"));
+  }, []);
+
+  if (error) {
+    return <div className="p-6 text-red-400 font-mono text-sm">Erreur : {error}</div>;
+  }
+
+  if (!data) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-muted-foreground font-mono text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" /> Chargement infrastructure…
+      </div>
+    );
+  }
+
+  const clusterColor = data.cluster.status === "HEALTHY" ? "text-emerald-400" : "text-orange-400";
+  const clusterBg = data.cluster.status === "HEALTHY" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" : "bg-orange-500/15 text-orange-400 border-orange-500/25";
+  const retention = data.retention.days;
   const retLabel = retention <= 30 ? "30 jours" : retention <= 180 ? "6 mois" : "1 an";
-
-  const handleSeal = () => {
-    setSealTs(new Date().toISOString());
-    setSealed(true);
-  };
+  const sealed = data.retention.sealed;
+  const sealTs = data.retention.sealed_at;
 
   return (
     <div className="p-6 space-y-5">
@@ -55,19 +53,21 @@ export default function InfraScreen() {
         <div className="bg-card border border-emerald-500/20 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Cluster Elasticsearch</p>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">HEALTHY</span>
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${clusterBg}`}>{data.cluster.status}</span>
           </div>
           <div className="flex items-center gap-3">
-            <Database className="w-7 h-7 text-emerald-400" />
+            <Database className={`w-7 h-7 ${clusterColor}`} />
             <div>
-              <p className="text-2xl font-bold font-mono text-emerald-400">3 / 3</p>
+              <p className={`text-2xl font-bold font-mono ${clusterColor}`}>{data.cluster.active} / {data.cluster.total}</p>
               <p className="text-[10px] text-muted-foreground">nœuds actifs</p>
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-border/50 text-[10px] font-mono text-muted-foreground space-y-0.5">
-            <p><span className="text-emerald-400">●</span> node-01 — data-master</p>
-            <p><span className="text-emerald-400">●</span> node-02 — data</p>
-            <p><span className="text-emerald-400">●</span> node-03 — data</p>
+            {data.cluster.nodes.map((n) => (
+              <p key={n.name}>
+                <span className={n.status === "HEALTHY" ? "text-emerald-400" : "text-orange-400"}>●</span> {n.name} — {n.role}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -77,29 +77,30 @@ export default function InfraScreen() {
             <HardDrive className="w-3.5 h-3.5 text-muted-foreground" />
           </div>
           <div className="flex items-center gap-3 mb-3">
-            <p className="text-3xl font-bold font-mono text-yellow-400">45%</p>
+            <p className="text-3xl font-bold font-mono text-yellow-400">{data.storage.pct}%</p>
             <div className="text-[10px] text-muted-foreground font-mono">
-              <p>4,5 To utilisés</p>
-              <p>sur 10 To total</p>
+              <p>{data.storage.used_tb} To utilisés</p>
+              <p>sur {data.storage.total_tb} To total</p>
             </div>
           </div>
           <div className="h-2.5 bg-secondary rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-linear-to-r from-yellow-600 to-yellow-400 transition-all duration-700" style={{ width: "45%" }} />
+            <div className="h-full rounded-full bg-linear-to-r from-yellow-600 to-yellow-400 transition-all duration-700" style={{ width: `${data.storage.pct}%` }} />
           </div>
-          <p className="text-[10px] text-muted-foreground mt-2 font-mono">5,5 To disponibles — Seuil alerte : 80%</p>
+          <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+            {data.storage.available_tb} To disponibles — Seuil alerte : {data.storage.alert_threshold_pct}%
+          </p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
           <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Débit d'ingestion (logs/s)</p>
           <ResponsiveContainer width="100%" height={72}>
-            <LineChart data={INGEST_DATA} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
+            <LineChart data={data.ingestion.history.length ? data.ingestion.history : [{ t: "—", v: 0 }]} margin={{ top: 2, right: 2, left: -20, bottom: 0 }}>
               <Line type="monotone" dataKey="v" stroke="#06b6d4" strokeWidth={2} dot={false} />
               <Tooltip content={<ChartTip />} />
             </LineChart>
           </ResponsiveContainer>
           <p className="text-[10px] font-mono text-muted-foreground mt-2">
-            Actuel : <span className="text-cyan-400 font-bold">1 980 logs/s</span>
-            <span className="ml-2 text-emerald-400">↑ normal</span>
+            Actuel : <span className="text-cyan-400 font-bold">{data.ingestion.current.toLocaleString("fr-FR")} logs/s</span>
           </p>
         </div>
       </div>
@@ -111,9 +112,8 @@ export default function InfraScreen() {
         </div>
         <div className="flex items-center gap-6">
           <div className="flex-1">
-            <input type="range" min={30} max={365} step={1} value={retention}
-              onChange={(e) => { setRetention(parseInt(e.target.value)); setSealed(false); }}
-              className="w-full cursor-pointer accent-blue-500 h-1.5" />
+            <input type="range" min={30} max={365} step={1} value={retention} readOnly disabled
+              className="w-full cursor-not-allowed accent-blue-500 h-1.5 opacity-70" />
             <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1.5">
               <span>30 jours</span><span>6 mois</span><span>1 an</span>
             </div>
@@ -122,16 +122,16 @@ export default function InfraScreen() {
             <p className="text-xl font-bold font-mono text-blue-400">{retLabel}</p>
             <p className="text-[10px] text-muted-foreground font-mono">{retention} jours</p>
           </div>
-          <button onClick={handleSeal}
-            className={`px-4 py-2.5 rounded-lg text-xs font-mono transition-colors flex items-center gap-2 whitespace-nowrap ${
+          <div
+            className={`px-4 py-2.5 rounded-lg text-xs font-mono flex items-center gap-2 whitespace-nowrap ${
               sealed
                 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                : "bg-blue-600 hover:bg-blue-500 text-white shadow"
+                : "bg-secondary text-muted-foreground border border-border"
             }`}>
             {sealed
               ? <><Check className="w-3.5 h-3.5" /> Politique scellée</>
-              : <><Lock className="w-3.5 h-3.5" /> Appliquer &amp; Sceller</>}
-          </button>
+              : <><Lock className="w-3.5 h-3.5" /> Non scellée</>}
+          </div>
         </div>
         {sealed && sealTs && (
           <div className="mt-4 p-3 bg-emerald-500/8 border border-emerald-500/20 rounded-lg flex items-start gap-2.5">
@@ -169,7 +169,7 @@ export default function InfraScreen() {
               </tr>
             </thead>
             <tbody>
-              {AUDIT_LOG.map((log, i) => (
+              {data.audit_log.map((log, i) => (
                 <tr key={i} className="border-b border-border/20 hover:bg-secondary/15 transition-colors">
                   <td className="px-5 py-3 text-[10px] font-mono text-slate-700 whitespace-nowrap">{log.ts}</td>
                   <td className="px-5 py-3 text-[11px] font-mono">

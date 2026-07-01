@@ -3,6 +3,25 @@
 # Arrêt     : docker compose down
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: smart-siem-postgres
+    environment:
+      POSTGRES_USER: siem
+      POSTGRES_PASSWORD: siem
+      POSTGRES_DB: smart_siem
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./01_smart_siem_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./02_smart_siem_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siem -d smart_siem"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
     container_name: smart-siem-elasticsearch
@@ -43,3 +62,4 @@ services:
 
 volumes:
   es_data:
+  pg_data:

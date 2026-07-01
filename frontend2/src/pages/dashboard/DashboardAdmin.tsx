@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Settings, ChevronDown, ChevronRight, LogOut, Zap, BarChart3, AlertTriangle, Search, Activity, Users, Zap as ZapIcon, Server } from "lucide-react";
+import { adminApi } from "../../api/admin";
 import DashboardScreen from "../../components/admin-screens/AdminDashboardScreen";
 import IncidentsScreen from "../../components/admin-screens/AdminIncidentScreen";
 import SearchScreen from "../../components/admin-screens/AdminSearchScreen";
@@ -30,7 +31,14 @@ const SETTINGS_NAV = [
 export default function AdminDashboard() {
   const [currentPage, setCurrentPage] = useState<Screen>("dashboard");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [ingestionRate, setIngestionRate] = useState<number | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    adminApi.dashboard()
+      .then((d) => setIngestionRate(d.stats.ingestion_rate))
+      .catch(() => setIngestionRate(null));
+  }, []);
 
   const isSettings = ["users", "rules", "infra"].includes(currentPage);
 
@@ -154,7 +162,9 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2 text-[10px] font-mono text-slate-700">
             <Zap className="w-3 h-3" />
-            2 341 logs/s — 14:59 UTC
+            {ingestionRate !== null
+              ? `${ingestionRate.toLocaleString("fr-FR")} logs/s — PostgreSQL`
+              : "Débit ingestion indisponible"}
           </div>
         </div>
 

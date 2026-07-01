@@ -1,15 +1,6 @@
-import { useState } from "react";
-import { UserPlus, Edit2, Trash2, X, Eye, EyeOff } from "lucide-react";
-
-const USERS_INIT = [
-  { id: 1, username: "j.martin",  role: "Admin",    scope: "Global",         status: "Actif",   last: "2026-06-22 14:33" },
-  { id: 2, username: "a.dupont",  role: "Analyste", scope: "Filiale Europe", status: "Actif",   last: "2026-06-22 11:15" },
-  { id: 3, username: "s.chen",    role: "Analyste", scope: "Dev",            status: "Actif",   last: "2026-06-22 09:47" },
-  { id: 4, username: "m.legrand", role: "Lecteur",  scope: "RH",             status: "Actif",   last: "2026-06-21 16:23" },
-  { id: 5, username: "k.ibrahim", role: "Analyste", scope: "Prod",           status: "Inactif", last: "2026-06-18 08:11" },
-  { id: 6, username: "p.novak",   role: "Lecteur",  scope: "Filiale Europe", status: "Actif",   last: "2026-06-22 13:05" },
-  { id: 7, username: "l.santos",  role: "Admin",    scope: "Global",         status: "Actif",   last: "2026-06-22 14:55" },
-];
+import { useEffect, useState } from "react";
+import { UserPlus, Edit2, Trash2, X, Eye, EyeOff, Loader2 } from "lucide-react";
+import { adminApi, type UserRow } from "../../api/admin";
 
 const ROLE_STYLE: Record<string, string> = {
   Admin:    "bg-violet-500/15 text-violet-700 border border-violet-500/25",
@@ -36,24 +27,37 @@ function StatusPill({ s }: { s: string }) {
 }
 
 export default function UsersScreen() {
-  const [users, setUsers] = useState(USERS_INIT);
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [form, setForm] = useState({ username: "", role: "Analyste", scope: "Global", password: "" });
 
-  const handleAdd = () => {
-    if (!form.username.trim() || !form.password.trim()) return;
-    setUsers((p) => [...p, { id: p.length + 1, ...form, status: "Actif", last: new Date().toISOString().slice(0, 16).replace("T", " ") }]);
-    setOpen(false);
-    setForm({ username: "", role: "Analyste", scope: "Global", password: "" });
+  const loadUsers = () => {
+    setLoading(true);
+    adminApi.users()
+      .then(setUsers)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur"))
+      .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  if (error && !users.length) {
+    return <div className="p-6 text-red-400 font-mono text-sm">Erreur : {error}</div>;
+  }
 
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Gestion des Utilisateurs — RBAC</h2>
-          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{users.filter((u) => u.status === "Actif").length} utilisateurs actifs sur {users.length} comptes</p>
+          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+            {users.filter((u) => u.status === "Actif").length} utilisateurs actifs sur {users.length} comptes — PostgreSQL
+          </p>
         </div>
         <button onClick={() => setOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-mono rounded-lg transition-colors shadow">
@@ -62,34 +66,40 @@ export default function UsersScreen() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-secondary/20">
-              {["Nom d'utilisateur", "Rôle", "Périmètre", "Statut", "Dernière connexion", "Actions"].map((h) => (
-                <th key={h} className="text-left px-5 py-3 text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
-                <td className="px-5 py-3.5 text-xs font-mono text-cyan-400 font-bold">{u.username}</td>
-                <td className="px-5 py-3.5">
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-sm ${ROLE_STYLE[u.role] ?? ROLE_STYLE.Lecteur}`}>{u.role}</span>
-                </td>
-                <td className="px-5 py-3.5 text-[11px] font-mono text-muted-foreground">{u.scope}</td>
-                <td className="px-5 py-3.5"><StatusPill s={u.status} /></td>
-                <td className="px-5 py-3.5 text-[11px] font-mono text-muted-foreground">{u.last}</td>
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <button className="text-blue-400 hover:text-blue-300 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
-                    <button className="text-red-500/70 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                </td>
+        {loading ? (
+          <div className="p-8 flex items-center justify-center gap-2 text-muted-foreground font-mono text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-secondary/20">
+                {["Nom d'utilisateur", "Rôle", "Périmètre", "Statut", "Dernière connexion", "Actions"].map((h) => (
+                  <th key={h} className="text-left px-5 py-3 text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
+                  <td className="px-5 py-3.5 text-xs font-mono text-cyan-400 font-bold">{u.username}</td>
+                  <td className="px-5 py-3.5">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-sm ${ROLE_STYLE[u.role] ?? ROLE_STYLE.Lecteur}`}>{u.role}</span>
+                  </td>
+                  <td className="px-5 py-3.5 text-[11px] font-mono text-muted-foreground">{u.scope}</td>
+                  <td className="px-5 py-3.5"><StatusPill s={u.status} /></td>
+                  <td className="px-5 py-3.5 text-[11px] font-mono text-muted-foreground">{u.last}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <button className="text-blue-400 hover:text-blue-300 transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button className="text-red-500/70 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {open && (
@@ -98,7 +108,7 @@ export default function UsersScreen() {
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h3 className="text-base font-semibold text-foreground">Créer un compte SOC</h3>
-                <p className="text-xs text-muted-foreground font-mono mt-0.5">Contrôle d'accès RBAC — Smart SIEM</p>
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">Contrôle d'accès RBAC — lecture seule PostgreSQL</p>
               </div>
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors mt-0.5">
                 <X className="w-4 h-4" />
@@ -152,13 +162,12 @@ export default function UsersScreen() {
             <div className="flex gap-3 mt-6">
               <button onClick={() => setOpen(false)}
                 className="flex-1 px-4 py-2 text-sm font-mono border border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors">
-                Annuler
-              </button>
-              <button onClick={handleAdd}
-                className="flex-1 px-4 py-2 text-sm font-mono bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow">
-                <UserPlus className="w-3.5 h-3.5" /> Créer le compte
+                Fermer
               </button>
             </div>
+            <p className="text-[10px] font-mono text-muted-foreground text-center mt-3">
+              La création de comptes sera disponible via l&apos;API. Affichage des données PostgreSQL uniquement.
+            </p>
           </div>
         </div>
       )}

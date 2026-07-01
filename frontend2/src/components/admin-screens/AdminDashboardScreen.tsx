@@ -1,22 +1,7 @@
-import { AlertTriangle, Bell, Zap, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, Bell, Zap, Clock, Loader2 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
-const TREND_DATA = [
-  { t: "00h", c: 2, h: 5, m: 12 }, { t: "02h", c: 1, h: 3, m: 8 },
-  { t: "04h", c: 0, h: 2, m: 6 },  { t: "06h", c: 3, h: 7, m: 15 },
-  { t: "08h", c: 5, h: 12, m: 23 },{ t: "10h", c: 8, h: 18, m: 31 },
-  { t: "12h", c: 6, h: 14, m: 28 },{ t: "14h", c: 9, h: 20, m: 35 },
-  { t: "16h", c: 7, h: 16, m: 29 },{ t: "18h", c: 4, h: 11, m: 24 },
-  { t: "20h", c: 5, h: 13, m: 27 },{ t: "22h", c: 3, h: 8, m: 19 },
-];
-
-const INCIDENTS = [
-  { id: "INC-2851", title: "Force Brute sur compte admin_prod", sev: "CRITICAL", status: "Ouvert", src: "185.220.101.47", time: "14:58" },
-  { id: "INC-2850", title: "Élévation de privilèges détectée", sev: "CRITICAL", status: "En cours", src: "10.10.5.23", time: "14:51" },
-  { id: "INC-2849", title: "Scan de ports LAN interne", sev: "HIGH", status: "En cours", src: "10.10.8.102", time: "14:22" },
-  { id: "INC-2848", title: "Connexion depuis nœud TOR", sev: "HIGH", status: "Ouvert", src: "185.107.47.215", time: "13:45" },
-  { id: "INC-2847", title: "Exfiltration DNS suspecte", sev: "HIGH", status: "Résolu", src: "10.10.3.77", time: "13:12" },
-];
+import { adminApi, type DashboardData } from "../../api/admin";
 
 const SEV_STYLE: Record<string, string> = {
   CRITICAL: "bg-red-500/15 text-red-400 border border-red-500/30",
@@ -33,6 +18,7 @@ const STATUS_DOT: Record<string, string> = {
   Ouvert: "bg-red-400 animate-pulse",
   "En cours": "bg-orange-400 animate-pulse",
   Résolu: "bg-emerald-400",
+  Clôturé: "bg-slate-500",
 };
 
 function StatusPill({ s }: { s: string }) {
@@ -44,12 +30,12 @@ function StatusPill({ s }: { s: string }) {
   );
 }
 
-function ChartTip({ active, payload, label }: any) {
+function ChartTip({ active, payload, label }: { active?: boolean; payload?: { stroke?: string; fill?: string; color?: string; name?: string; value?: number }[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-[#090e1b] border border-[#1a2540] rounded-md px-3 py-2 text-[11px] font-mono shadow-xl">
       <p className="text-slate-700 mb-1 pb-1 border-b border-[#1a2540]">{label}</p>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i) => (
         <p key={i} style={{ color: p.stroke ?? p.fill ?? p.color }}>
           {p.name}: <span className="font-semibold">{p.value}</span>
         </p>
@@ -59,14 +45,69 @@ function ChartTip({ active, payload, label }: any) {
 }
 
 export default function DashboardScreen() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.dashboard()
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur de chargement"));
+  }, []);
+
+  if (error) {
+    return (
+      <div className="p-6 text-red-400 font-mono text-sm">
+        Impossible de charger le tableau de bord : {error}
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-muted-foreground font-mono text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" /> Chargement des données…
+      </div>
+    );
+  }
+
+  const { stats, trend, severity_distribution, recent_incidents } = data;
+
   return (
     <div className="p-6 space-y-5">
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Incidents Actifs", value: "14", sub: "dont 2 critiques", icon: AlertTriangle, color: "text-red-400", bg: "bg-red-500/10" },
-          { label: "Alertes (24h)", value: "847", sub: "+12 % vs hier", icon: Bell, color: "text-orange-400", bg: "bg-orange-500/10" },
-          { label: "Débit ingestion", value: "2 341", sub: "logs / seconde", icon: Zap, color: "text-cyan-400", bg: "bg-cyan-500/10" },
-          { label: "MTTR moyen", value: "38 min", sub: "7 incidents résolus", icon: Clock, color: "text-violet-400", bg: "bg-violet-500/10" },
+          {
+            label: "Incidents Actifs",
+            value: String(stats.active_incidents),
+            sub: stats.critical_incidents > 0 ? `dont ${stats.critical_incidents} critiques` : "aucun critique",
+            icon: AlertTriangle,
+            color: "text-red-400",
+            bg: "bg-red-500/10",
+          },
+          {
+            label: "Alertes (24h)",
+            value: String(stats.alerts_24h),
+            sub: "depuis PostgreSQL",
+            icon: Bell,
+            color: "text-orange-400",
+            bg: "bg-orange-500/10",
+          },
+          {
+            label: "Débit ingestion",
+            value: stats.ingestion_rate.toLocaleString("fr-FR"),
+            sub: "logs / seconde",
+            icon: Zap,
+            color: "text-cyan-400",
+            bg: "bg-cyan-500/10",
+          },
+          {
+            label: "MTTR moyen",
+            value: stats.mttr_minutes > 0 ? `${stats.mttr_minutes} min` : "—",
+            sub: `${stats.resolved_count} incident${stats.resolved_count > 1 ? "s" : ""} résolu${stats.resolved_count > 1 ? "s" : ""}`,
+            icon: Clock,
+            color: "text-violet-400",
+            bg: "bg-violet-500/10",
+          },
         ].map((k) => (
           <div key={k.label} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
             <div className={`p-2.5 rounded-lg border ${k.bg}`}>
@@ -88,11 +129,11 @@ export default function DashboardScreen() {
             <div className="flex items-center gap-4 text-[10px] font-mono">
               <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-red-400" /> Critique</span>
               <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-orange-400" /> High</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-yellow-400" /> Medium</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-0.5 bg-yellow-400" /> Warning</span>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={190}>
-            <AreaChart data={TREND_DATA} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+            <AreaChart data={trend} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
               <defs>
                 <linearGradient id="gc" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.35} />
@@ -117,18 +158,14 @@ export default function DashboardScreen() {
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col">
           <p className="text-sm font-medium mb-4">Répartition criticité</p>
           <div className="flex-1 space-y-3">
-            {[
-              { label: "CRITIQUE", count: 2, pct: 14, bar: "bg-red-500", text: "text-red-400" },
-              { label: "HIGH", count: 5, pct: 36, bar: "bg-orange-500", text: "text-orange-400" },
-              { label: "WARNING", count: 7, pct: 50, bar: "bg-yellow-500", text: "text-yellow-400" },
-            ].map((r) => (
+            {severity_distribution.map((r) => (
               <div key={r.label}>
                 <div className="flex justify-between mb-1.5">
                   <span className="text-[10px] font-mono text-muted-foreground">{r.label}</span>
-                  <span className={`text-sm font-bold font-mono ${r.text}`}>{r.count}</span>
+                  <span className={`text-sm font-bold font-mono ${r.label === "CRITIQUE" ? "text-red-400" : r.label === "HIGH" ? "text-orange-400" : "text-yellow-400"}`}>{r.count}</span>
                 </div>
                 <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-                  <div className={`h-full ${r.bar}`} style={{ width: `${r.pct}%` }} />
+                  <div className={`h-full ${r.label === "CRITIQUE" ? "bg-red-500" : r.label === "HIGH" ? "bg-orange-500" : "bg-yellow-500"}`} style={{ width: `${r.pct}%` }} />
                 </div>
               </div>
             ))}
@@ -139,7 +176,7 @@ export default function DashboardScreen() {
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <p className="text-sm font-medium">Incidents récents</p>
-          <span className="text-[10px] font-mono text-muted-foreground">Mis à jour il y a 12 s</span>
+          <span className="text-[10px] font-mono text-muted-foreground">Données PostgreSQL</span>
         </div>
         <table className="w-full">
           <thead>
@@ -150,8 +187,12 @@ export default function DashboardScreen() {
             </tr>
           </thead>
           <tbody>
-            {INCIDENTS.map((inc, i) => (
-              <tr key={inc.id} className={`border-b border-border/30 hover:bg-secondary/40 ${i === 0 ? "bg-red-500/5" : ""}`}>
+            {recent_incidents.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-6 text-center text-xs font-mono text-muted-foreground">Aucun incident</td>
+              </tr>
+            ) : recent_incidents.map((inc, i) => (
+              <tr key={inc.id} className={`border-b border-border/30 hover:bg-secondary/40 ${i === 0 && inc.sev === "CRITICAL" ? "bg-red-500/5" : ""}`}>
                 <td className="px-5 py-3 text-xs font-mono text-blue-400">{inc.id}</td>
                 <td className="px-5 py-3 text-xs text-foreground/90 max-w-65 truncate">{inc.title}</td>
                 <td className="px-5 py-3"><SevBadge s={inc.sev} /></td>

@@ -1,22 +1,38 @@
-import { Activity } from "lucide-react";
-
-const UEBA_ROWS = [
-  { user: "k.ibrahim", score: 94, anomalies: 7, last: "14:47", delta: "+18", detail: "Volume téléchargement ×12, accès hors périmètre ×3"  },
-  { user: "svc_backup", score: 88, anomalies: 5, last: "14:51", delta: "+22", detail: "Élévation privilèges, exécution de commandes inhabituelles" },
-  { user: "j.bernard",  score: 72, anomalies: 3, last: "13:45", delta: "+14", detail: "Connexion TOR, nouveau pays source référencé"         },
-  { user: "p.muller",   score: 45, anomalies: 2, last: "02:34", delta: "+3",  detail: "Accès hors horaires, ressources inhabituelles"        },
-  { user: "m.legrand",  score: 38, anomalies: 2, last: "11:07", delta: "+5",  detail: "Connexion depuis pays non référencé"                  },
-  { user: "a.dupont",   score: 12, anomalies: 0, last: "11:15", delta: "0",   detail: "Aucune anomalie détectée — comportement nominal"      },
-];
+import { useEffect, useState } from "react";
+import { Activity, Loader2 } from "lucide-react";
+import { adminApi, type UebaData } from "../../api/admin";
 
 export default function UEBAScreen() {
+  const [data, setData] = useState<UebaData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.ueba()
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : "Erreur"));
+  }, []);
+
+  if (error) {
+    return <div className="p-6 text-red-400 font-mono text-sm">Erreur : {error}</div>;
+  }
+
+  if (!data) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-muted-foreground font-mono text-sm">
+        <Loader2 className="w-4 h-4 animate-spin" /> Chargement UEBA…
+      </div>
+    );
+  }
+
+  const modelVersion = data.rows[0]?.model_version ?? "UEBA v3.1";
+
   return (
     <div className="p-6 space-y-5">
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Utilisateurs surveillés",    value: "156", color: "text-foreground"   },
-          { label: "Scores critiques (score > 80)", value: "2", color: "text-red-400"    },
-          { label: "Anomalies détectées (7j)",   value: "31",  color: "text-orange-400"  },
+          { label: "Utilisateurs surveillés", value: String(data.stats.monitored), color: "text-foreground" },
+          { label: "Scores critiques (score > 80)", value: String(data.stats.critical), color: "text-red-400" },
+          { label: "Anomalies détectées (7j)", value: String(data.stats.anomalies_7d), color: "text-orange-400" },
         ].map((s) => (
           <div key={s.label} className="bg-card border border-border rounded-xl px-5 py-4">
             <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{s.label}</p>
@@ -29,7 +45,7 @@ export default function UEBAScreen() {
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">Score de risque comportemental</p>
-            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">Moteur ML — Modèle UEBA v3.1 — Rafraîchi il y a 3 min</p>
+            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">Moteur ML — Modèle {modelVersion} — Données PostgreSQL</p>
           </div>
           <Activity className="w-4 h-4 text-muted-foreground" />
         </div>
@@ -42,7 +58,11 @@ export default function UEBAScreen() {
             </tr>
           </thead>
           <tbody>
-            {UEBA_ROWS.map((u) => {
+            {data.rows.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-xs font-mono text-muted-foreground">Aucun score UEBA</td>
+              </tr>
+            ) : data.rows.map((u) => {
               const sc =
                 u.score >= 80 ? "text-red-400" :
                 u.score >= 50 ? "text-orange-400" :

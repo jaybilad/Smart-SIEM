@@ -6,7 +6,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5174, // Remplace par le port que tu veux
-    strictPort: true, // Optionnel : empêche Vite de chercher un autre port si le 5174 est pris
+    port: 5174,
+    strictPort: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
   },
 })
