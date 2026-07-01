@@ -1,11 +1,11 @@
 const API_BASE = "/api/admin";
 
-async function fetchJson<T>(path: string, params?: Record<string, string>): Promise<T> {
+async function fetchJson<T>(path: string, params?: Record<string, string>, init?: RequestInit): Promise<T> {
   const url = new URL(`${API_BASE}${path}`, window.location.origin);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), init);
   if (!res.ok) {
     throw new Error(`API ${path} — ${res.status}`);
   }
@@ -46,6 +46,7 @@ export type SocDashboardData = {
     high_open_incidents: number;
     high_risk_hosts: number;
     ueba_max_score: number;
+    ueba_top_user: string | null;
     log_volume: { t: string; v: number }[];
     top_ips: { ip: string; count: number; sev: string }[];
   };
@@ -77,16 +78,20 @@ export type SocLogSearchData = {
 export type SocPlaybookRow = {
   id: string;
   name: string;
+  sev: string;
   desc: string;
   auto: boolean;
   triggers: number;
   lastRun: string;
+  rules: string[];
 };
 
 export const socApi = {
   dashboard: () => fetchJson<SocDashboardData>("/dashboard"),
   incidents: (status?: string) =>
     fetchJson<SocIncidentRow[]>("/incidents", status ? { status } : undefined),
+  updateIncidentStatus: (uuid: string, status: string) =>
+    fetchJson<SocIncidentRow>(`/incidents/${uuid}/status`, { status }, { method: "PATCH" }),
   searchLogs: (q: string, range: string) =>
     fetchJson<SocLogSearchData>("/logs/search", { q, range }),
   playbooks: () => fetchJson<SocPlaybookRow[]>("/playbooks"),

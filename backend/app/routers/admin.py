@@ -16,6 +16,7 @@ STATUS_LABEL = {
 }
 
 STATUS_FILTER = {v: k for k, v in STATUS_LABEL.items()}
+STATUS_FILTER["RÃ©solue"] = "RESOLVED"
 
 RANGE_SECONDS = {
     "1h": 3600,
@@ -214,11 +215,17 @@ def dashboard():
 
         cur.execute(
             """
-            SELECT MAX(risk_score) AS max_score
-            FROM user_risk_scores
+            SELECT urs.risk_score AS max_score,
+                   u.username AS top_user
+            FROM user_risk_scores urs
+            JOIN users u ON u.id = urs.user_id
+            ORDER BY urs.risk_score DESC
+            LIMIT 1
             """
         )
-        max_risk = cur.fetchone()["max_score"] or 0
+        risk_row = cur.fetchone()
+        max_risk = risk_row["max_score"] if risk_row else 0
+        top_risk_user = risk_row["top_user"] if risk_row else None
 
         cur.execute(
             """
@@ -265,6 +272,7 @@ def dashboard():
             "high_open_incidents": high_open,
             "high_risk_hosts": risky_hosts,
             "ueba_max_score": max_risk,
+            "ueba_top_user": top_risk_user,
             "log_volume": log_volume,
             "top_ips": [
                 {
@@ -300,6 +308,36 @@ def incidents(status: str | None = Query(None)):
         rows = cur.fetchall()
 
     return [_map_incident(r) for r in rows]
+
+
+@router.patch("/incidents/{incident_id}/status")
+def update_incident_status(incident_id: str, status: str = Query(...)):
+    db_status = STATUS_FILTER.get(status)
+    if not db_status:
+        raise HTTPException(400, f"Statut inconnu : {status}")
+
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE incidents
+            SET status = %s,
+                updated_at = now(),
+                closed_at = CASE
+                    WHEN %s IN ('RESOLVED', 'CLOSED') THEN COALESCE(closed_at, now())
+                    ELSE NULL
+                END
+            WHERE id = %s
+            RETURNING *
+            """,
+            [db_status, db_status, incident_id],
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Incident introuvable")
+        conn.commit()
+
+    return _map_incident(row)
 
 
 @router.get("/logs/search")
@@ -437,9 +475,10 @@ def playbooks():
                    p.action_name,
                    p.description,
                    p.is_automatic,
-                   COUNT(ia.id) AS triggers,
+                   COUNT(DISTINCT ia.id) AS triggers,
                    MAX(ia.execution_time) AS last_run,
-                   MAX(ar.severity::text) AS top_severity
+                   MAX(ar.severity::text) AS top_severity,
+                   ARRAY_REMOVE(ARRAY_AGG(DISTINCT ar.rule_name), NULL) AS rules
             FROM playbooks p
             LEFT JOIN incident_actions ia ON ia.playbook_id = p.id
             LEFT JOIN attack_rules ar ON ar.playbook_id = p.id
@@ -458,6 +497,7 @@ def playbooks():
             "triggers": r["triggers"],
             "lastRun": r["last_run"].strftime("%Y-%m-%d") if r["last_run"] else "—",
             "sev": r.get("top_severity") or "HIGH",
+            "rules": r.get("rules") or [],
         }
         for r in rows
     ]

@@ -23,7 +23,7 @@ function StatusChip({ s }: { s: string }) {
   const colors: Record<string, string> = {
     Nouvelle:   "bg-blue-500/15 text-blue-400 border border-blue-500/25",
     "En cours": "bg-orange-500/15 text-orange-400 border border-orange-500/25",
-    Résolue:    "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
+    Résolu:    "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
     "Faux positif": "bg-slate-500/15 text-slate-400 border border-slate-500/25",
   };
   return (
@@ -39,6 +39,7 @@ export default function SOCIncidentsScreen() {
   const [noteInput, setNoteInput] = useState("");
   const [notes, setNotes] = useState<Record<string, { ts: string; text: string }[]>>({});
   const [loading, setLoading] = useState(true);
+  const [savingStatus, setSavingStatus] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -54,7 +55,7 @@ export default function SOCIncidentsScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filterOpts = ["Tous", "Ouvert", "En cours", "Résolue", "Clôturé"];
+  const filterOpts = ["Tous", "Ouvert", "En cours", "Résolu", "Clôturé"];
   const sorted = [...incidents].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, WARNING: 2, INFO: 3 };
     return (order[a.sev as keyof typeof order] ?? 4) - (order[b.sev as keyof typeof order] ?? 4);
@@ -65,13 +66,22 @@ export default function SOCIncidentsScreen() {
   const selectedDate = selected?.created_at ? selected.created_at.split("T")[0] : "—";
   const selectedUeba = selected?.ueba ?? 0;
 
-  const takeCharge = () => {
+  const persistStatus = async (status: string) => {
     if (!selected) return;
-    setStatuses((p) => ({ ...p, [selected.id]: "En cours" }));
+    setSavingStatus(true);
+    try {
+      const updated = await socApi.updateIncidentStatus(selected.uuid, status);
+      setIncidents((items) => items.map((item) => item.id === selected.id ? updated : item));
+      setStatuses((p) => ({ ...p, [selected.id]: updated.status }));
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+  const takeCharge = () => {
+    void persistStatus("En cours");
   };
   const closeResolved = () => {
-    if (!selected) return;
-    setStatuses((p) => ({ ...p, [selected.id]: "Résolue" }));
+    void persistStatus("Résolu");
   };
   const addNote = () => {
     if (!selected || !noteInput.trim()) return;
@@ -178,13 +188,13 @@ export default function SOCIncidentsScreen() {
               <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Actions de statut</p>
               <div className="flex flex-wrap gap-2">
                 {(selectedStatus === "Ouvert" || selectedStatus === "En cours") && (
-                  <button onClick={takeCharge}
+                  <button onClick={takeCharge} disabled={savingStatus}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow">
                     <UserCheck className="w-3.5 h-3.5" /> Prendre en charge
                   </button>
                 )}
-                {selectedStatus !== "Résolue" && selectedStatus !== "Faux positif" && (
-                  <button onClick={closeResolved}
+                {selectedStatus !== "Résolu" && selectedStatus !== "Faux positif" && (
+                  <button onClick={closeResolved} disabled={savingStatus}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono bg-emerald-700/80 hover:bg-emerald-600 text-white rounded-lg transition-colors">
                     <Check className="w-3.5 h-3.5" /> Clôturer (Résolu)
                   </button>

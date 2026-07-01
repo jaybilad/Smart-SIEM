@@ -3,23 +3,6 @@ import { AlertTriangle, Activity, Globe, MapPin, ChevronDown, Check, Radio } fro
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { socApi, type SocDashboardData } from "../../api/soc";
 
-const REALTIME_LOGS = [
-  { t: "14:30", v: 1120, eu: 280 }, { t: "14:31", v: 980,  eu: 245 },
-  { t: "14:32", v: 1340, eu: 335 }, { t: "14:33", v: 1580, eu: 395 },
-  { t: "14:34", v: 1230, eu: 308 }, { t: "14:35", v: 890,  eu: 223 },
-  { t: "14:36", v: 2100, eu: 525 }, { t: "14:37", v: 1750, eu: 438 },
-  { t: "14:38", v: 1430, eu: 358 }, { t: "14:39", v: 1890, eu: 473 },
-  { t: "14:40", v: 2240, eu: 560 }, { t: "14:41", v: 1670, eu: 418 },
-];
-
-const TOP5_IPS = [
-  { ip: "185.107.47.215", count: 3, country: "NL / TOR exit", sev: "HIGH" },
-  { ip: "41.214.100.30",  count: 2, country: "Nigeria",        sev: "WARNING" },
-  { ip: "192.168.10.33",  count: 2, country: "Interne / EU",   sev: "HIGH" },
-  { ip: "185.220.101.47", count: 1, country: "RU / TOR exit",  sev: "CRITICAL" },
-  { ip: "192.168.50.14",  count: 1, country: "Interne / EU",   sev: "WARNING" },
-];
-
 function SevBadge({ s }: { s: string }) {
   const colors: Record<string, string> = {
     CRITICAL: "bg-red-500/15 text-red-400 border border-red-500/30",
@@ -53,26 +36,32 @@ export default function SOCDashboardScreen() {
   const [profile, setProfile] = useState<"technique" | "crise">("technique");
   const [profileOpen, setProfileOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<SocDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     socApi.dashboard()
       .then((data) => setDashboardData(data))
-      .catch(() => setDashboardData(null));
+      .catch(() => setDashboardData(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const topIps = dashboardData?.soc?.top_ips?.length
-    ? dashboardData.soc.top_ips.map((item) => ({ ip: item.ip, count: item.count, country: "DB", sev: item.sev }))
-    : TOP5_IPS;
-
-  const volumeData = dashboardData?.soc?.log_volume?.length ? dashboardData.soc.log_volume : REALTIME_LOGS;
-  const openIncidents = dashboardData?.soc?.high_open_incidents ?? 1;
-  const highRiskHosts = dashboardData?.soc?.high_risk_hosts ?? 2;
-  const maxUeba = dashboardData?.soc?.ueba_max_score ?? 94;
+  const topIps = dashboardData?.soc?.top_ips ?? [];
+  const volumeData = dashboardData?.soc?.log_volume ?? [];
+  const criticalOpenIncidents = dashboardData?.stats.critical_incidents ?? 0;
+  const highOpenIncidents = dashboardData?.soc?.high_open_incidents ?? 0;
+  const highRiskHosts = dashboardData?.soc?.high_risk_hosts ?? 0;
+  const maxUeba = dashboardData?.soc?.ueba_max_score ?? 0;
+  const recentHighIds = dashboardData?.recent_incidents
+    ?.filter((inc) => ["CRITICAL", "HIGH"].includes(inc.sev))
+    .map((inc) => inc.id)
+    .slice(0, 3)
+    .join(", ") || "Aucun incident ouvert";
 
   const kpiItems = [
     {
       label: "Incidents actifs",
-      value: dashboardData ? String(dashboardData.stats.active_incidents) : "—",
+      value: loading ? "..." : dashboardData ? String(dashboardData.stats.active_incidents) : "0",
       sub: "Filiale Europe",
       color: "text-orange-400",
       bg: "bg-orange-500/10 border-orange-500/20",
@@ -80,7 +69,7 @@ export default function SOCDashboardScreen() {
     },
     {
       label: "Logs/s (EU)",
-      value: dashboardData ? String(dashboardData.stats.ingestion_rate) : "—",
+      value: loading ? "..." : dashboardData ? String(dashboardData.stats.ingestion_rate) : "0",
       sub: "flux actuel",
       color: "text-cyan-400",
       bg: "bg-cyan-500/10 border-cyan-500/20",
@@ -88,7 +77,7 @@ export default function SOCDashboardScreen() {
     },
     {
       label: "IPs suspectes",
-      value: dashboardData ? String(topIps.length) : "—",
+      value: loading ? "..." : String(topIps.length),
       sub: "détectées (24h)",
       color: "text-red-400",
       bg: "bg-red-500/10 border-red-500/20",
@@ -96,7 +85,7 @@ export default function SOCDashboardScreen() {
     },
     {
       label: "Menace critique",
-      value: dashboardData ? String(maxUeba) : "—",
+      value: loading ? "..." : String(maxUeba),
       sub: "UEBA score max",
       color: "text-red-400",
       bg: "bg-red-500/10 border-red-500/20",
@@ -107,29 +96,29 @@ export default function SOCDashboardScreen() {
   const crisisStats = [
     {
       label: "Incidents critiques ouverts",
-      value: String(openIncidents),
-      note: "INC-2852 — Exfiltration",
+      value: String(criticalOpenIncidents),
+      note: recentHighIds,
       color: "text-red-400",
       bg: "border-red-500/30 bg-red-500/5",
     },
     {
       label: "Incidents HIGH non résolus",
-      value: String(dashboardData?.stats.critical_incidents ?? 2),
-      note: "INC-2853, INC-2845",
+      value: String(highOpenIncidents),
+      note: recentHighIds,
       color: "text-orange-400",
       bg: "border-orange-500/30 bg-orange-500/5",
     },
     {
       label: "Machines à risque élevé",
       value: String(highRiskHosts),
-      note: "WS-EU-088, WS-EU-047",
+      note: "Hôtes distincts avec logs HIGH/CRITICAL",
       color: "text-orange-400",
       bg: "border-orange-500/20",
     },
     {
       label: "Score UEBA maximum",
       value: String(maxUeba),
-      note: "k.ibrahim — CRITIQUE",
+      note: dashboardData?.soc.ueba_top_user ?? "Aucun score UEBA",
       color: "text-red-400",
       bg: "border-red-500/20",
     },
@@ -198,31 +187,41 @@ export default function SOCDashboardScreen() {
               <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-medium text-foreground">Volume de logs — 24 heures</p>
                 </div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={volumeData} margin={{ left: -16, right: 4, top: 4, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#06b6d4" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}    />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" />
-                    <XAxis dataKey="t" tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} interval={4} />
-                    <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
-                    <Tooltip content={<ChartTip />} />
-                    <Area type="monotone" dataKey="v" name="Total logs" stroke="#06b6d4" fill="url(#gv)" strokeWidth={1.5} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {volumeData.length === 0 ? (
+                  <div className="h-[180px] flex items-center justify-center text-xs font-mono text-muted-foreground">
+                    {loading ? "Chargement des logs..." : "Aucun volume de logs en base sur 24h."}
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <AreaChart data={volumeData} margin={{ left: -16, right: 4, top: 4, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%"  stopColor="#06b6d4" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}    />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" />
+                      <XAxis dataKey="t" tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} interval={4} />
+                      <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
+                      <Tooltip content={<ChartTip />} />
+                      <Area type="monotone" dataKey="v" name="Total logs" stroke="#06b6d4" fill="url(#gv)" strokeWidth={1.5} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             <div className="bg-card border border-border rounded-xl p-5">
               <p className="text-sm font-medium text-foreground mb-3">Top 5 IPs suspectes</p>
               <div className="space-y-2">
-                {topIps.map((ip, i) => (
+                {topIps.length === 0 ? (
+                  <div className="py-8 text-center text-xs font-mono text-muted-foreground">
+                    {loading ? "Chargement..." : "Aucune IP suspecte en base sur 24h."}
+                  </div>
+                ) : topIps.map((ip, i) => (
                   <div key={`${ip.ip}-${i}`} className="flex items-center gap-2.5 py-1.5 border-b border-border/40 last:border-0">
                     <span className="text-[10px] font-mono text-slate-600 w-3">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-mono text-orange-300 truncate">{ip.ip}</p>
-                      <p className="text-[9px] font-mono text-muted-foreground">{ip.country}</p>
+                      <p className="text-[9px] font-mono text-muted-foreground">PostgreSQL local</p>
                     </div>
                     <div className="text-right">
                       <SevBadge s={ip.sev} />
@@ -242,7 +241,7 @@ export default function SOCDashboardScreen() {
               <Radio className="w-5 h-5 text-red-400 animate-pulse" />
               <p className="text-base font-bold text-red-400">MODE GESTION DE CRISE ACTIVÉ</p>
             </div>
-            <p className="text-sm text-muted-foreground">Vue synthétique destinée à la cellule de crise — Filiale Europe — 22 juin 2026 14:59 UTC</p>
+            <p className="text-sm text-muted-foreground">Vue synthétique alimentée par PostgreSQL local — Filiale Europe</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
