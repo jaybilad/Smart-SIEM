@@ -1,25 +1,8 @@
-import { useState } from "react";
-import { UserCheck, Check, Send,AlertTriangle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { socApi, type SocIncidentRow } from "../../api/soc";
+import { UserCheck, Check, Send, AlertTriangle } from "lucide-react";
 
-interface Incident {
-  id: string; title: string; sev: string; rule: string;
-  src: string; target: string; machine: string; ueba: number;
-  time: string; date: string;
-}
-
-const INCIDENTS: Incident[] = [
-  { id: "INC-2853", title: "Connexion depuis pays non référencé — TOR",   sev: "HIGH",     rule: "Nouveau Pays Source",      src: "185.107.47.215",  target: "j.bernard@eu.local",  machine: "WS-EU-047",     ueba: 72, time: "14:58", date: "2026-06-22" },
-  { id: "INC-2852", title: "Téléchargement massif SharePoint Filiale EU", sev: "CRITICAL", rule: "Exfiltration Données",      src: "192.168.10.33",   target: "k.ibrahim@eu.local",  machine: "WS-EU-088",     ueba: 94, time: "14:47", date: "2026-06-22" },
-  { id: "INC-2845", title: "Accès hors périmètre — serveurs Prod",        sev: "HIGH",     rule: "Accès Hors Périmètre",     src: "192.168.10.55",   target: "t.werner@eu.local",   machine: "WS-EU-031",     ueba: 61, time: "09:30", date: "2026-06-22" },
-  { id: "INC-2844", title: "Auth anomale Office 365 EU",                  sev: "WARNING",  rule: "Auth Anomale Cloud",        src: "40.99.12.200",    target: "s.lemaire@eu.local",  machine: "cloud-O365-EU", ueba: 33, time: "08:55", date: "2026-06-22" },
-  { id: "INC-2838", title: "Nouveau pays source — utilisateur RH",        sev: "WARNING",  rule: "Nouveau Pays Source",      src: "41.214.100.30",   target: "m.legrand@rh.local",  machine: "WS-RH-EU-011",  ueba: 38, time: "11:07", date: "2026-06-22" },
-  { id: "INC-2831", title: "Connexion hors horaires définis (02h34)",     sev: "WARNING",  rule: "Connexion Hors Horaires",  src: "192.168.50.14",   target: "p.muller@eu.local",   machine: "WS-EU-023",     ueba: 45, time: "02:34", date: "2026-06-22" },
-];
-
-const INIT_STATUSES: Record<string, string> = {
-  "INC-2853": "Nouvelle", "INC-2852": "En cours", "INC-2845": "En cours",
-  "INC-2844": "Nouvelle", "INC-2838": "Nouvelle", "INC-2831": "Résolue",
-};
+const INIT_STATUSES: Record<string, string> = {};
 
 function SevBadge({ s }: { s: string }) {
   const colors: Record<string, string> = {
@@ -49,20 +32,38 @@ function StatusChip({ s }: { s: string }) {
 }
 
 export default function SOCIncidentsScreen() {
+  const [incidents, setIncidents] = useState<SocIncidentRow[]>([]);
   const [statuses, setStatuses] = useState<Record<string, string>>(INIT_STATUSES);
-  const [selectedId, setSelectedId] = useState<string | null>(INCIDENTS[0].id);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState("Tous");
   const [noteInput, setNoteInput] = useState("");
   const [notes, setNotes] = useState<Record<string, { ts: string; text: string }[]>>({});
+  const [loading, setLoading] = useState(true);
 
-  const filterOpts = ["Tous", "Nouvelle", "En cours", "Résolue"];
-  const sorted = [...INCIDENTS].sort((a, b) => {
+  useEffect(() => {
+    setLoading(true);
+    socApi.incidents()
+      .then((data) => {
+        setIncidents(data);
+        setStatuses(Object.fromEntries(data.map((item) => [item.id, item.status])) as Record<string, string>);
+        setSelectedId((current) => current ?? data[0]?.id ?? null);
+      })
+      .catch(() => {
+        setIncidents([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filterOpts = ["Tous", "Ouvert", "En cours", "Résolue", "Clôturé"];
+  const sorted = [...incidents].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, WARNING: 2, INFO: 3 };
     return (order[a.sev as keyof typeof order] ?? 4) - (order[b.sev as keyof typeof order] ?? 4);
   });
-  const displayed = filter === "Tous" ? sorted : sorted.filter((i) => statuses[i.id] === filter);
-  const selected = selectedId ? INCIDENTS.find((i) => i.id === selectedId) ?? null : null;
-  const selectedStatus = selected ? (statuses[selected.id] ?? "Nouvelle") : null;
+  const displayed = filter === "Tous" ? sorted : sorted.filter((i) => (statuses[i.id] ?? i.status) === filter);
+  const selected = selectedId ? incidents.find((i) => i.id === selectedId) ?? null : null;
+  const selectedStatus = selected ? (statuses[selected.id] ?? selected.status) : null;
+  const selectedDate = selected?.created_at ? selected.created_at.split("T")[0] : "—";
+  const selectedUeba = selected?.ueba ?? 0;
 
   const takeCharge = () => {
     if (!selected) return;
@@ -97,7 +98,11 @@ export default function SOCIncidentsScreen() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {displayed.map((inc) => {
+          {loading ? (
+            <div className="p-6 text-center text-muted-foreground font-mono text-sm">Chargement des incidents…</div>
+          ) : displayed.length === 0 ? (
+            <div className="p-6 text-center text-muted-foreground font-mono text-sm">Aucun incident disponible.</div>
+          ) : displayed.map((inc) => {
             const st = statuses[inc.id] ?? "Nouvelle";
             const isSelected = selectedId === inc.id;
             const borderL =
@@ -140,7 +145,7 @@ export default function SOCIncidentsScreen() {
                 </div>
                 <h2 className="text-base font-semibold text-foreground">{selected.title}</h2>
               </div>
-              <span className="text-[10px] font-mono text-muted-foreground shrink-0">{selected.date} {selected.time}</span>
+              <span className="text-[10px] font-mono text-muted-foreground shrink-0">{selectedDate} {selected.time}</span>
             </div>
 
             {/* Metadata */}
@@ -149,7 +154,7 @@ export default function SOCIncidentsScreen() {
                 ["Règle déclenchée",   selected.rule],
                 ["IP source",          selected.src],
                 ["Utilisateur cible",  selected.target],
-                ["Machine concernée",  selected.machine],
+                ["Machine concernée",  selected.machine ?? "—"],
               ].map(([k, v]) => (
                 <div key={k}>
                   <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">{k}</p>
@@ -160,10 +165,10 @@ export default function SOCIncidentsScreen() {
                 <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-1.5">Score UEBA comportemental</p>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${selected.ueba >= 80 ? "bg-linear-to-r from-red-600 to-red-400" : selected.ueba >= 50 ? "bg-linear-to-r from-orange-600 to-orange-400" : "bg-linear-to-r from-yellow-600 to-yellow-400"}`}
-                      style={{ width: `${selected.ueba}%` }} />
+                    <div className={`h-full rounded-full transition-all ${selectedUeba >= 80 ? "bg-linear-to-r from-red-600 to-red-400" : selectedUeba >= 50 ? "bg-linear-to-r from-orange-600 to-orange-400" : "bg-linear-to-r from-yellow-600 to-yellow-400"}`}
+                      style={{ width: `${selectedUeba}%` }} />
                   </div>
-                  <span className={`text-sm font-bold font-mono ${selected.ueba >= 80 ? "text-red-400" : selected.ueba >= 50 ? "text-orange-400" : "text-yellow-400"}`}>{selected.ueba}<span className="text-slate-600 text-xs">/100</span></span>
+                  <span className={`text-sm font-bold font-mono ${selectedUeba >= 80 ? "text-red-400" : selectedUeba >= 50 ? "text-orange-400" : "text-yellow-400"}`}>{selectedUeba > 0 ? selectedUeba : "N/A"}<span className="text-slate-600 text-xs">{selectedUeba > 0 ? "/100" : ""}</span></span>
                 </div>
               </div>
             </div>
@@ -172,7 +177,7 @@ export default function SOCIncidentsScreen() {
             <div className="bg-card border border-border rounded-xl p-4">
               <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Actions de statut</p>
               <div className="flex flex-wrap gap-2">
-                {(selectedStatus === "Nouvelle" || selectedStatus === "Ouvert") && (
+                {(selectedStatus === "Ouvert" || selectedStatus === "En cours") && (
                   <button onClick={takeCharge}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors shadow">
                     <UserCheck className="w-3.5 h-3.5" /> Prendre en charge

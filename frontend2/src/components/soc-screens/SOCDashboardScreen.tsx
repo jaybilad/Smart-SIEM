@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, Activity, Globe, MapPin, ChevronDown, Check, Radio } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { socApi, type SocDashboardData } from "../../api/soc";
 
 const REALTIME_LOGS = [
   { t: "14:30", v: 1120, eu: 280 }, { t: "14:31", v: 980,  eu: 245 },
@@ -51,6 +52,88 @@ function ChartTip({ active, payload, label }: any) {
 export default function SOCDashboardScreen() {
   const [profile, setProfile] = useState<"technique" | "crise">("technique");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [dashboardData, setDashboardData] = useState<SocDashboardData | null>(null);
+
+  useEffect(() => {
+    socApi.dashboard()
+      .then((data) => setDashboardData(data))
+      .catch(() => setDashboardData(null));
+  }, []);
+
+  const topIps = dashboardData?.soc?.top_ips?.length
+    ? dashboardData.soc.top_ips.map((item) => ({ ip: item.ip, count: item.count, country: "DB", sev: item.sev }))
+    : TOP5_IPS;
+
+  const volumeData = dashboardData?.soc?.log_volume?.length ? dashboardData.soc.log_volume : REALTIME_LOGS;
+  const openIncidents = dashboardData?.soc?.high_open_incidents ?? 1;
+  const highRiskHosts = dashboardData?.soc?.high_risk_hosts ?? 2;
+  const maxUeba = dashboardData?.soc?.ueba_max_score ?? 94;
+
+  const kpiItems = [
+    {
+      label: "Incidents actifs",
+      value: dashboardData ? String(dashboardData.stats.active_incidents) : "—",
+      sub: "Filiale Europe",
+      color: "text-orange-400",
+      bg: "bg-orange-500/10 border-orange-500/20",
+      icon: AlertTriangle,
+    },
+    {
+      label: "Logs/s (EU)",
+      value: dashboardData ? String(dashboardData.stats.ingestion_rate) : "—",
+      sub: "flux actuel",
+      color: "text-cyan-400",
+      bg: "bg-cyan-500/10 border-cyan-500/20",
+      icon: Activity,
+    },
+    {
+      label: "IPs suspectes",
+      value: dashboardData ? String(topIps.length) : "—",
+      sub: "détectées (24h)",
+      color: "text-red-400",
+      bg: "bg-red-500/10 border-red-500/20",
+      icon: Globe,
+    },
+    {
+      label: "Menace critique",
+      value: dashboardData ? String(maxUeba) : "—",
+      sub: "UEBA score max",
+      color: "text-red-400",
+      bg: "bg-red-500/10 border-red-500/20",
+      icon: AlertTriangle,
+    },
+  ];
+
+  const crisisStats = [
+    {
+      label: "Incidents critiques ouverts",
+      value: String(openIncidents),
+      note: "INC-2852 — Exfiltration",
+      color: "text-red-400",
+      bg: "border-red-500/30 bg-red-500/5",
+    },
+    {
+      label: "Incidents HIGH non résolus",
+      value: String(dashboardData?.stats.critical_incidents ?? 2),
+      note: "INC-2853, INC-2845",
+      color: "text-orange-400",
+      bg: "border-orange-500/30 bg-orange-500/5",
+    },
+    {
+      label: "Machines à risque élevé",
+      value: String(highRiskHosts),
+      note: "WS-EU-088, WS-EU-047",
+      color: "text-orange-400",
+      bg: "border-orange-500/20",
+    },
+    {
+      label: "Score UEBA maximum",
+      value: String(maxUeba),
+      note: "k.ibrahim — CRITIQUE",
+      color: "text-red-400",
+      bg: "border-red-500/20",
+    },
+  ];
 
   return (
     <div className="p-5 space-y-4 pb-10">
@@ -95,12 +178,7 @@ export default function SOCDashboardScreen() {
         <>
           {/* KPIs */}
           <div className="grid grid-cols-4 gap-3">
-            {[
-              { label: "Incidents actifs",  value: "5",     sub: "Filiale Europe",   color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20", icon: AlertTriangle },
-              { label: "Logs/s (EU)",        value: "495",   sub: "flux actuel",      color: "text-cyan-400",   bg: "bg-cyan-500/10 border-cyan-500/20",     icon: Activity     },
-              { label: "IPs suspectes",      value: "5",     sub: "détectées (24h)",  color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20",       icon: Globe        },
-              { label: "Menace critique",    value: "1",     sub: "UEBA score 94",    color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20",       icon: AlertTriangle },
-            ].map((k) => (
+            {kpiItems.map((k) => (
               <div key={k.label} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
                 <div className={`p-2 rounded-lg border shrink-0 ${k.bg}`}>
                   <k.icon className={`w-3.5 h-3.5 ${k.color}`} />
@@ -118,40 +196,29 @@ export default function SOCDashboardScreen() {
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 bg-card border border-border rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-medium text-foreground">Volume de logs — temps réel (30 min)</p>
-                <div className="flex items-center gap-3 text-[10px] font-mono">
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-cyan-500" /> Total</span>
-                  <span className="flex items-center gap-1"><span className="inline-block w-2 h-0.5 bg-blue-400" /> Filiale EU</span>
+                  <p className="text-sm font-medium text-foreground">Volume de logs — 24 heures</p>
                 </div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <AreaChart data={volumeData} margin={{ left: -16, right: 4, top: 4, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#06b6d4" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}    />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" />
+                    <XAxis dataKey="t" tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} interval={4} />
+                    <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
+                    <Tooltip content={<ChartTip />} />
+                    <Area type="monotone" dataKey="v" name="Total logs" stroke="#06b6d4" fill="url(#gv)" strokeWidth={1.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <AreaChart data={REALTIME_LOGS} margin={{ left: -16, right: 4, top: 4, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#06b6d4" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}    />
-                    </linearGradient>
-                    <linearGradient id="geu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}    />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" />
-                  <XAxis dataKey="t" tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} interval={4} />
-                  <YAxis tick={{ fill: "#64748b", fontSize: 9 }} axisLine={false} tickLine={false} width={36} tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`} />
-                  <Tooltip content={<ChartTip />} />
-                  <Area type="monotone" dataKey="v"  name="Total (logs/s)"    stroke="#06b6d4" fill="url(#gv)"  strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="eu" name="Filiale EU (logs/s)" stroke="#3b82f6" fill="url(#geu)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Top 5 IPs */}
             <div className="bg-card border border-border rounded-xl p-5">
               <p className="text-sm font-medium text-foreground mb-3">Top 5 IPs suspectes</p>
               <div className="space-y-2">
-                {TOP5_IPS.map((ip, i) => (
-                  <div key={ip.ip} className="flex items-center gap-2.5 py-1.5 border-b border-border/40 last:border-0">
+                {topIps.map((ip, i) => (
+                  <div key={`${ip.ip}-${i}`} className="flex items-center gap-2.5 py-1.5 border-b border-border/40 last:border-0">
                     <span className="text-[10px] font-mono text-slate-600 w-3">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-mono text-orange-300 truncate">{ip.ip}</p>
@@ -179,12 +246,7 @@ export default function SOCDashboardScreen() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {[
-              { label: "Incidents critiques ouverts", value: "1",  note: "INC-2852 — Exfiltration",     color: "text-red-400",    bg: "border-red-500/30 bg-red-500/5"    },
-              { label: "Incidents HIGH non résolus",  value: "2",  note: "INC-2853, INC-2845",           color: "text-orange-400", bg: "border-orange-500/30 bg-orange-500/5" },
-              { label: "Machines à risque élevé",     value: "2",  note: "WS-EU-088, WS-EU-047",         color: "text-orange-400", bg: "border-orange-500/20"              },
-              { label: "Score UEBA maximum",          value: "94", note: "k.ibrahim — CRITIQUE",         color: "text-red-400",    bg: "border-red-500/20"                 },
-            ].map((s) => (
+            {crisisStats.map((s) => (
               <div key={s.label} className={`bg-card border rounded-xl p-5 ${s.bg}`}>
                 <p className="text-[11px] text-muted-foreground font-mono mb-1">{s.label}</p>
                 <p className={`text-4xl font-bold font-mono ${s.color}`}>{s.value}</p>

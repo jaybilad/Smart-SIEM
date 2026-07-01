@@ -1,22 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
 import { Terminal, RefreshCw, Flag, Search, Eye, X, Ban } from "lucide-react";
+import { socApi, type SocLogRow, type SocLogSearchData } from "../../api/soc";
 
 const SEV_DOT_COLOR: Record<string, string> = {
   CRITICAL: "#ef4444", HIGH: "#f97316", WARNING: "#eab308", INFO: "#3b82f6",
 };
-
-const LOG_EVENTS = [
-  { id: "e01", ts: "2026-06-22T14:58:01Z", src: "185.107.47.215",  dst: "10.0.2.15",             event: "AUTH_SUCCESS",   user: "j.bernard",  detail: "Connexion réussie depuis nœud TOR sortant",           sev: "CRITICAL" , machine: "WS-EU-047"     },
-  { id: "e02", ts: "2026-06-22T14:57:55Z", src: "185.107.47.215",  dst: "10.0.2.15",             event: "AUTH_FAILURE",   user: "j.bernard",  detail: "Tentative auth refusée — MFA non validé",             sev: "HIGH"     , machine: "WS-EU-047"     },
-  { id: "e03", ts: "2026-06-22T14:57:48Z", src: "185.107.47.215",  dst: "vpn-gw-eu.local",       event: "VPN_CONNECT",   user: "j.bernard",  detail: "Connexion VPN initiée depuis Russie via TOR",         sev: "HIGH"     , machine: "vpn-gw-eu"     },
-  { id: "e04", ts: "2026-06-22T14:47:30Z", src: "192.168.10.33",   dst: "sharepoint.eu.local",   event: "FILE_DOWNLOAD", user: "k.ibrahim",  detail: "Téléchargement 2,4 Go en 8 minutes — 340 fichiers",   sev: "CRITICAL" , machine: "WS-EU-088"     },
-  { id: "e05", ts: "2026-06-22T14:40:12Z", src: "192.168.10.33",   dst: "sharepoint.eu.local",   event: "FILE_ACCESS",   user: "k.ibrahim",  detail: "Accès à 340 fichiers confidentiels en parcours rapide",sev: "HIGH"     , machine: "WS-EU-088"     },
-  { id: "e06", ts: "2026-06-22T11:07:44Z", src: "41.214.100.30",   dst: "10.0.3.21",             event: "AUTH_SUCCESS",   user: "m.legrand",  detail: "Connexion depuis Nigeria — pays non référencé",        sev: "WARNING"  , machine: "WS-RH-EU-011"  },
-  { id: "e07", ts: "2026-06-22T09:30:10Z", src: "192.168.10.55",   dst: "10.0.5.100",            event: "ACCESS_DENIED", user: "t.werner",   detail: "Accès aux serveurs Prod refusé — hors périmètre",     sev: "WARNING"  , machine: "WS-EU-031"     },
-  { id: "e08", ts: "2026-06-22T08:55:42Z", src: "40.99.12.200",    dst: "login.microsoftonline", event: "AUTH_ANOMALY",  user: "s.lemaire",  detail: "Token Office 365 généré depuis IP inconnue",          sev: "WARNING"  , machine: "cloud-O365-EU" },
-  { id: "e09", ts: "2026-06-22T02:34:18Z", src: "192.168.50.14",   dst: "10.0.2.30",             event: "AUTH_SUCCESS",   user: "p.muller",   detail: "Connexion réussie à 02h34 — hors plages horaires",    sev: "WARNING"  , machine: "WS-EU-023"     },
-  { id: "e10", ts: "2026-06-21T23:12:04Z", src: "10.0.1.100",      dst: "10.0.2.45",             event: "SCAN_INTERNAL", user: "N/A",        detail: "Scan réseau interne depuis poste non identifié",      sev: "INFO"     , machine: "UNKNOWN"       },
-];
 
 function SevBadge({ s }: { s: string }) {
   const colors: Record<string, string> = {
@@ -35,10 +23,37 @@ function SevBadge({ s }: { s: string }) {
 
 export default function SOCSearchScreen() {
   const [filters, setFilters] = useState({ ip: "", user: "", type: "", sev: "", time: "24h" });
+  const [events, setEvents] = useState<SocLogRow[]>([]);
+  const [stats, setStats] = useState<SocLogSearchData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [inspectEvent, setInspectEvent] = useState<any>(null);
   const [contextMenu, setContextMenu] = useState<{ show: boolean; x: number; y: number; value: string } | null>(null);
   const [timelineSel, setTimelineSel] = useState<string | null>(null);
+
+  const buildQuery = () => {
+    const qParts: string[] = [];
+    if (filters.ip.trim()) qParts.push(`src_ip:${filters.ip.trim()}`);
+    if (filters.user.trim()) qParts.push(`user:${filters.user.trim()}`);
+    if (filters.type.trim()) qParts.push(`event_type:${filters.type.trim()}`);
+    if (filters.sev.trim()) qParts.push(`sev:${filters.sev.trim()}`);
+    return qParts.join(" ");
+  };
+
+  useEffect(() => {
+    const q = buildQuery();
+    setLoading(true);
+    socApi.searchLogs(q, filters.time)
+      .then((data) => {
+        setEvents(data.results);
+        setStats(data);
+      })
+      .catch(() => {
+        setEvents([]);
+        setStats(null);
+      })
+      .finally(() => setLoading(false));
+  }, [filters]);
 
   useEffect(() => {
     const hide = () => setContextMenu(null);
@@ -46,13 +61,7 @@ export default function SOCSearchScreen() {
     return () => document.removeEventListener("click", hide);
   }, []);
 
-  const filtered = LOG_EVENTS.filter((e) => {
-    if (filters.ip   && !e.src.includes(filters.ip)) return false;
-    if (filters.user && !e.user.toLowerCase().includes(filters.user.toLowerCase())) return false;
-    if (filters.type && !e.event.includes(filters.type.toUpperCase())) return false;
-    if (filters.sev  && e.sev !== filters.sev) return false;
-    return true;
-  });
+  const filtered = events;
 
   const toggleFlag = (id: string) => {
     setFlagged((prev) => {
@@ -62,7 +71,7 @@ export default function SOCSearchScreen() {
     });
   };
 
-  const openContext = (e: React.MouseEvent, value: string) => {
+  const openContext = (e: MouseEvent<HTMLButtonElement>, value: string) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ show: true, x: e.clientX, y: e.clientY, value });
@@ -118,9 +127,9 @@ export default function SOCSearchScreen() {
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground">
-        <span><span className="text-foreground font-bold">{filtered.length}</span> événements</span>
+        <span><span className="text-foreground font-bold">{loading ? "…" : stats?.stats.total_events ?? filtered.length}</span> événements</span>
         <span><span className="text-orange-400 font-bold">{flagged.size}</span> marqués</span>
-        <span><span className="text-blue-400 font-bold">{filtered.filter((e) => e.sev === "CRITICAL").length}</span> critiques</span>
+        <span><span className="text-blue-400 font-bold">{loading ? "…" : filtered.filter((e) => e.sev === "CRITICAL").length}</span> critiques</span>
         <div className="flex-1" />
         <button className="flex items-center gap-1.5 px-2.5 py-1 bg-secondary/40 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors border border-border text-[10px]">
           <RefreshCw className="w-2.5 h-2.5" /> Exporter

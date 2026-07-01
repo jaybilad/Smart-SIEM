@@ -59,11 +59,14 @@ def _map_incident(row: dict) -> dict:
         "id": _inc_id(row["id"]),
         "uuid": str(row["id"]),
         "title": row["title"],
+        "description": row.get("description") or "—",
+        "rule": row.get("rule_name") or "—",
         "sev": row["severity"],
         "status": STATUS_LABEL.get(row["status"], row["status"]),
         "src": str(row["source_ip"]) if row.get("source_ip") else "—",
         "target": row.get("target") or "—",
         "time": _fmt_time(row.get("created_at")),
+        "created_at": _fmt_iso(row.get("created_at")),
         "assignee": row.get("assignee"),
     }
 
@@ -178,14 +181,70 @@ def dashboard():
 
         cur.execute(
             """
-            SELECT i.*, u.username AS assignee
+            SELECT i.*, u.username AS assignee, ar.rule_name
             FROM incidents i
             LEFT JOIN users u ON u.id = i.assigned_to
+            LEFT JOIN alerts a ON a.id = i.alert_id
+            LEFT JOIN attack_rules ar ON ar.id = a.rule_id
             ORDER BY i.created_at DESC
             LIMIT 5
             """
         )
         recent = [_map_incident(r) for r in cur.fetchall()]
+
+        cur.execute(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM incidents
+            WHERE status IN ('OPEN', 'IN_PROGRESS')
+              AND severity = 'HIGH'
+            """
+        )
+        high_open = cur.fetchone()["cnt"]
+
+        cur.execute(
+            """
+            SELECT COUNT(DISTINCT l.host_id) AS cnt
+            FROM logs l
+            WHERE l.severity IN ('HIGH', 'CRITICAL')
+              AND l."timestamp" >= now() - interval '24 hours'
+            """
+        )
+        risky_hosts = cur.fetchone()["cnt"]
+
+        cur.execute(
+            """
+            SELECT MAX(risk_score) AS max_score
+            FROM user_risk_scores
+            """
+        )
+        max_risk = cur.fetchone()["max_score"] or 0
+
+        cur.execute(
+            """
+            SELECT source_ip::text AS ip,
+                   COUNT(*) AS count,
+                   MAX(severity::text) AS sev
+            FROM logs
+            WHERE "timestamp" >= now() - interval '24 hours'
+            GROUP BY source_ip
+            ORDER BY COUNT(*) DESC
+            LIMIT 5
+            """
+        )
+        top_ips = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT to_char(date_trunc('hour', "timestamp"), 'HH24"h"') AS t,
+                   COUNT(*) AS v
+            FROM logs
+            WHERE "timestamp" >= now() - interval '24 hours'
+            GROUP BY 1
+            ORDER BY MIN("timestamp")
+            """
+        )
+        log_volume = cur.fetchall()
 
     active = inc_stats["active"] or 0
     critical = inc_stats["critical"] or 0
@@ -202,6 +261,20 @@ def dashboard():
         "trend": trend or [{"t": "00h", "c": 0, "h": 0, "m": 0}],
         "severity_distribution": severity_distribution,
         "recent_incidents": recent,
+        "soc": {
+            "high_open_incidents": high_open,
+            "high_risk_hosts": risky_hosts,
+            "ueba_max_score": max_risk,
+            "log_volume": log_volume,
+            "top_ips": [
+                {
+                    "ip": r["ip"],
+                    "count": r["count"],
+                    "sev": r["sev"],
+                }
+                for r in top_ips
+            ],
+        },
     }
 
 
@@ -250,6 +323,11 @@ def search_logs(
     if src_ip:
         conditions.append("l.source_ip::text ILIKE %s")
         params.append(src_ip.replace("*", "%"))
+
+    severity = filters.get("sev") or filters.get("severity")
+    if severity:
+        conditions.append("l.severity::text = %s")
+        params.append(severity.upper())
 
     user = filters.get("user")
     if user and user != "*":
@@ -305,14 +383,17 @@ def search_logs(
 
         cur.execute(
             f"""
-            SELECT l."timestamp" AS ts,
+            SELECT l.id::text AS id,
+                   l."timestamp" AS ts,
                    l.source_ip::text AS src,
                    COALESCE(l.destination_ip::text, '—') AS dst,
                    l.event_type::text AS event,
                    COALESCE(l."user", 'N/A') AS user,
                    COALESCE(l.raw_message, '—') AS detail,
-                   l.severity::text AS sev
+                   l.severity::text AS sev,
+                   COALESCE(h.hostname::text, 'N/A') AS machine
             FROM logs l
+            LEFT JOIN hosts h ON h.id = l.host_id
             WHERE {where}
             ORDER BY l."timestamp" DESC
             LIMIT %s
@@ -331,6 +412,7 @@ def search_logs(
         "volume": volume,
         "results": [
             {
+                "id": r["id"],
                 "ts": _fmt_iso(r["ts"]),
                 "src": r["src"] or "—",
                 "dst": r["dst"],
@@ -338,10 +420,47 @@ def search_logs(
                 "user": r["user"],
                 "detail": r["detail"],
                 "sev": r["sev"],
+                "machine": r["machine"],
             }
             for r in rows
         ],
     }
+
+
+@router.get("/playbooks")
+def playbooks():
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT p.id,
+                   p.action_name,
+                   p.description,
+                   p.is_automatic,
+                   COUNT(ia.id) AS triggers,
+                   MAX(ia.execution_time) AS last_run,
+                   MAX(ar.severity::text) AS top_severity
+            FROM playbooks p
+            LEFT JOIN incident_actions ia ON ia.playbook_id = p.id
+            LEFT JOIN attack_rules ar ON ar.playbook_id = p.id
+            GROUP BY p.id, p.action_name, p.description, p.is_automatic
+            ORDER BY p.action_name
+            """
+        )
+        rows = cur.fetchall()
+
+    return [
+        {
+            "id": str(r["id"]),
+            "name": r["action_name"],
+            "desc": r.get("description") or "—",
+            "auto": r["is_automatic"],
+            "triggers": r["triggers"],
+            "lastRun": r["last_run"].strftime("%Y-%m-%d") if r["last_run"] else "—",
+            "sev": r.get("top_severity") or "HIGH",
+        }
+        for r in rows
+    ]
 
 
 @router.get("/ueba")
