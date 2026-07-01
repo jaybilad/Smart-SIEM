@@ -1,12 +1,17 @@
 """Routes API admin — lecture des données PostgreSQL."""
 
+from ipaddress import ip_address
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, field_validator
 
 from app.core.db import get_conn
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+VALID_SEVERITIES = {"INFO", "WARNING", "HIGH", "CRITICAL"}
 
 STATUS_LABEL = {
     "OPEN": "Ouvert",
@@ -16,6 +21,8 @@ STATUS_LABEL = {
 }
 
 STATUS_FILTER = {v: k for k, v in STATUS_LABEL.items()}
+STATUS_FILTER["Resolu"] = "RESOLVED"
+STATUS_FILTER["Cloture"] = "CLOSED"
 STATUS_FILTER["RÃ©solue"] = "RESOLVED"
 
 RANGE_SECONDS = {
@@ -79,6 +86,57 @@ def _parse_search_query(query: str) -> dict[str, str]:
             key, _, value = part.partition(":")
             filters[key.strip().lower()] = value.strip()
     return filters
+
+
+class IncidentCreate(BaseModel):
+    title: str
+    description: str | None = None
+    severity: str
+    attack_type: str
+    source_ip: str | None = None
+    target: str | None = None
+    assigned_to: UUID | None = None
+
+    @field_validator("title", "severity", "attack_type")
+    @classmethod
+    def _required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Champ obligatoire")
+        return value
+
+    @field_validator("description", "source_ip", "target", mode="before")
+    @classmethod
+    def _blank_to_none(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+    @field_validator("severity")
+    @classmethod
+    def _valid_severity(cls, value: str) -> str:
+        value = value.upper()
+        if value not in VALID_SEVERITIES:
+            raise ValueError("Niveau de criticite invalide")
+        return value
+
+    @field_validator("attack_type")
+    @classmethod
+    def _normalize_attack_type(cls, value: str) -> str:
+        return value.upper()
+
+    @field_validator("source_ip")
+    @classmethod
+    def _valid_source_ip(cls, value: str | None) -> str | None:
+        if value:
+            try:
+                ip_address(value)
+            except ValueError as exc:
+                raise ValueError("Adresse IP source invalide") from exc
+        return value
 
 
 @router.get("/dashboard")
@@ -308,6 +366,73 @@ def incidents(status: str | None = Query(None)):
         rows = cur.fetchall()
 
     return [_map_incident(r) for r in rows]
+
+
+@router.post("/incidents", status_code=201)
+def create_incident(payload: IncidentCreate):
+    with get_conn() as conn:
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT 1 FROM attack_rules WHERE attack_type = %s LIMIT 1",
+            [payload.attack_type],
+        )
+        if not cur.fetchone():
+            raise HTTPException(400, f"Type d'attaque inconnu : {payload.attack_type}")
+
+        if payload.assigned_to:
+            cur.execute("SELECT 1 FROM users WHERE id = %s", [payload.assigned_to])
+            if not cur.fetchone():
+                raise HTTPException(400, "Utilisateur assigne introuvable")
+
+        cur.execute(
+            """
+            INSERT INTO incidents (
+                alert_id,
+                title,
+                description,
+                severity,
+                status,
+                source_ip,
+                target,
+                assigned_to,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                NULL,
+                %s,
+                %s,
+                %s,
+                'OPEN',
+                %s,
+                %s,
+                %s,
+                now(),
+                now()
+            )
+            RETURNING *
+            """,
+            [
+                payload.title,
+                payload.description,
+                payload.severity,
+                payload.source_ip,
+                payload.target,
+                payload.assigned_to,
+            ],
+        )
+        row = cur.fetchone()
+
+        assignee = None
+        if row.get("assigned_to"):
+            cur.execute("SELECT username FROM users WHERE id = %s", [row["assigned_to"]])
+            assignee = cur.fetchone()
+
+        conn.commit()
+
+    row["assignee"] = assignee["username"] if assignee else None
+    return _map_incident(row)
 
 
 @router.patch("/incidents/{incident_id}/status")

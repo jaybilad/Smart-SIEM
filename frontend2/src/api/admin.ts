@@ -7,9 +7,34 @@ async function fetchJson<T>(path: string, params?: Record<string, string>): Prom
   }
   const res = await fetch(url.toString());
   if (!res.ok) {
-    throw new Error(`API ${path} — ${res.status}`);
+    throw new Error(await errorMessage(res, path));
   }
   return res.json() as Promise<T>;
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, path));
+  }
+  return res.json() as Promise<T>;
+}
+
+async function errorMessage(res: Response, path: string): Promise<string> {
+  try {
+    const data = await res.json();
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((d: { msg?: string } | string) => typeof d === "string" ? d : d.msg ?? String(d)).join(" ; ");
+    }
+  } catch {
+    // Response body is not JSON.
+  }
+  return `API ${path} (${res.status})`;
 }
 
 export type DashboardData = {
@@ -28,13 +53,26 @@ export type DashboardData = {
 
 export type IncidentRow = {
   id: string;
+  uuid?: string;
   title: string;
+  description?: string;
   sev: string;
   status: string;
   src: string;
   target?: string;
   time: string;
+  created_at?: string;
   assignee: string | null;
+};
+
+export type CreateIncidentPayload = {
+  title: string;
+  description?: string;
+  severity: string;
+  attack_type: string;
+  source_ip?: string;
+  target?: string;
+  assigned_to?: string | null;
 };
 
 export type LogSearchData = {
@@ -87,6 +125,7 @@ export type RuleRow = {
   window: number;
   desc: string;
   playbook: string;
+  attack_type: string;
 };
 
 export type InfraData = {
@@ -112,6 +151,8 @@ export const adminApi = {
   dashboard: () => fetchJson<DashboardData>("/dashboard"),
   incidents: (status?: string) =>
     fetchJson<IncidentRow[]>("/incidents", status ? { status } : undefined),
+  createIncident: (payload: CreateIncidentPayload) =>
+    postJson<IncidentRow>("/incidents", payload),
   searchLogs: (q: string, range: string) =>
     fetchJson<LogSearchData>("/logs/search", { q, range }),
   ueba: () => fetchJson<UebaData>("/ueba"),
