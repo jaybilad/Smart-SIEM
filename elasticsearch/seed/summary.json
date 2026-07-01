@@ -1,0 +1,51 @@
+{
+  "export_date": "2026-06-25T12:54:47.628374",
+  "total_documents": 21,
+  "indices": {
+    "logs": {
+      "description": "Logs SIEM",
+      "count": 11,
+      "filename": "logs.json"
+    },
+    "alerts": {
+      "description": "Alertes détectées",
+      "count": 0,
+      "filename": "alerts.json"
+    },
+    "users": {
+      "description": "Utilisateurs",
+      "count": 1,
+      "filename": "users.json"
+    },
+    "hosts": {
+      "description": "Hôtes monitorés",
+      "count": 1,
+      "filename": "hosts.json"
+    },
+    "attack_rules": {
+      "description": "Règles de corrélation",
+      "count": 5,
+      "filename": "attack_rules.json"
+    },
+    "playbooks": {
+      "description": "Playbooks SOAR",
+      "count": 3,
+      "filename": "playbooks.json"
+    },
+    "incidents": {
+      "description": "Incidents",
+      "count": 0,
+      "filename": "incidents.json"
+    },
+    "alert_logs": {
+      "description": "Liaison alertes ↔ logs",
+      "count": 0,
+      "filename": "alert_logs.json"
+    },
+    "incident_actions": {
+      "description": "Actions sur incidents",
+      "count": 0,
+      "filename": "incident_actions.json"
+    }
+  }
+}

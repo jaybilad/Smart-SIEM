@@ -1,0 +1,10 @@
+[
+  {
+    "id": "host_web_001",
+    "hostname": "webserver-01",
+    "host_type": "SERVER",
+    "ip_address": "192.168.1.10",
+    "operating_system": "Ubuntu 22.04",
+    "created_at": "2026-06-24T09:37:53.934680"
+  }
+]

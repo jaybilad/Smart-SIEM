@@ -1,0 +1,211 @@
+[
+  {
+    "id": "log_1782291161.645673_94b042",
+    "timestamp": "2026-06-24T09:52:41.645696",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "admin",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for admin from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "44zU-J4BaNdn4Bih4sso"
+  },
+  {
+    "id": "log_1782291161.624227_e17cd1",
+    "timestamp": "2026-06-24T09:52:41.624249",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "root",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for root from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "4ozU-J4BaNdn4Bih4ssY"
+  },
+  {
+    "id": "log_1782291161.600142_57c5f6",
+    "timestamp": "2026-06-24T09:52:41.600230",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "test",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for test from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "4YzU-J4BaNdn4Bih4cv4"
+  },
+  {
+    "id": "log_1782291161.578205_22f729",
+    "timestamp": "2026-06-24T09:52:41.578229",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "admin",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for admin from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "4IzU-J4BaNdn4Bih4cvp"
+  },
+  {
+    "id": "log_1782291161.397825_a22f87",
+    "timestamp": "2026-06-24T09:52:41.397853",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "root",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for root from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "34zU-J4BaNdn4Bih4csw"
+  },
+  {
+    "id": "log_1782290808.402404_768f96",
+    "timestamp": "2026-06-24T09:46:48.402432",
+    "source_ip": "10.0.0.5",
+    "host": "webserver-01",
+    "user": "admin",
+    "log_type": "auth_success",
+    "severity": "info",
+    "raw_message": "Accepted password for admin from 10.0.0.5 port 22",
+    "tags": [
+      "authentication",
+      "success"
+    ],
+    "protocol": null,
+    "port": null,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "3ozP-J4BaNdn4BihfstP"
+  },
+  {
+    "id": "log_1782290768.594205_355474",
+    "timestamp": "2026-06-24T09:46:08.594228",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "admin",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for admin from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "2ozO-J4BaNdn4Bih4svR"
+  },
+  {
+    "id": "log_1782290768.566372_642464",
+    "timestamp": "2026-06-24T09:46:08.566394",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "root",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for root from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "2YzO-J4BaNdn4Bih4suu"
+  },
+  {
+    "id": "log_1782290768.540193_a37b37",
+    "timestamp": "2026-06-24T09:46:08.540223",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "test",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for test from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "2IzO-J4BaNdn4Bih4suP"
+  },
+  {
+    "id": "log_1782290768.501326_2f94de",
+    "timestamp": "2026-06-24T09:46:08.501351",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "admin",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for admin from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "14zO-J4BaNdn4Bih4stz"
+  },
+  {
+    "id": "log_1782290768.300768_008f88",
+    "timestamp": "2026-06-24T09:46:08.301546",
+    "source_ip": "192.168.1.100",
+    "host": "webserver-01",
+    "user": "root",
+    "log_type": "auth_failure",
+    "severity": "high",
+    "raw_message": "Failed password for root from 192.168.1.100 port 22",
+    "tags": [
+      "authentication",
+      "failure"
+    ],
+    "protocol": "ssh",
+    "port": 22,
+    "country": null,
+    "risk_score": 0.0,
+    "_id": "1ozO-J4BaNdn4Bih4cur"
+  }
+]

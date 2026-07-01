@@ -1,0 +1,14 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "username": { "type": "keyword" },
+      "email": { "type": "keyword" },
+      "password_hash": { "type": "keyword" },
+      "role": { "type": "keyword" },
+      "is_admin": { "type": "boolean" },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" }
+    }
+  }
+}

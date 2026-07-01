@@ -1,0 +1,12 @@
+[
+  {
+    "id": "user_admin_001",
+    "username": "admin",
+    "email": "admin@smart-siem.local",
+    "password_hash": "admin123",
+    "role": "ADMIN",
+    "is_admin": true,
+    "created_at": "2026-06-24T09:37:53.934680",
+    "updated_at": "2026-06-24T09:37:53.934680"
+  }
+]

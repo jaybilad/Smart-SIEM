@@ -1,0 +1,12 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "hostname": { "type": "keyword" },
+      "host_type": { "type": "keyword" },
+      "ip_address": { "type": "ip" },
+      "operating_system": { "type": "keyword" },
+      "created_at": { "type": "date" }
+    }
+  }
+}

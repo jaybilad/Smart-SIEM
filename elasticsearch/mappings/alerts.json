@@ -1,0 +1,12 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "alert_type": { "type": "keyword" },
+      "severity": { "type": "keyword" },
+      "description": { "type": "text" },
+      "status": { "type": "keyword" },
+      "created_at": { "type": "date" }
+    }
+  }
+}

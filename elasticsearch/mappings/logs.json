@@ -1,0 +1,19 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "timestamp": { "type": "date" },
+      "source_ip": { "type": "ip" },
+      "host": { "type": "keyword" },
+      "user": { "type": "keyword" },
+      "log_type": { "type": "keyword" },
+      "severity": { "type": "keyword" },
+      "raw_message": { "type": "text" },
+      "tags": { "type": "keyword" },
+      "protocol": { "type": "keyword" },
+      "port": { "type": "integer" },
+      "country": { "type": "keyword" },
+      "risk_score": { "type": "float" }
+    }
+  }
+}

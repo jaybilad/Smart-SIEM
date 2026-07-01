@@ -1,0 +1,11 @@
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "incident_id": { "type": "keyword" },
+      "action_type": { "type": "keyword" },
+      "description": { "type": "text" },
+      "created_at": { "type": "date" }
+    }
+  }
+}
