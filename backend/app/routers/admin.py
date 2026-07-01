@@ -12,6 +12,8 @@ from app.core.db import get_conn
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 VALID_SEVERITIES = {"INFO", "WARNING", "HIGH", "CRITICAL"}
+VALID_ROLES = {"Admin", "Analyste", "Lecteur"}
+VALID_SCOPES = {"Global", "RH", "Filiale Europe", "Dev", "Prod"}
 
 STATUS_LABEL = {
     "OPEN": "Ouvert",
@@ -79,6 +81,20 @@ def _map_incident(row: dict) -> dict:
     }
 
 
+def _map_user(row: dict) -> dict:
+    status = row.get("status")
+    if status is None and "is_active" in row:
+        status = "Actif" if row["is_active"] else "Inactif"
+    return {
+        "id": str(row["id"]),
+        "username": row["username"],
+        "role": row["role"],
+        "scope": row["scope"],
+        "status": status,
+        "last": _fmt_datetime(row.get("last_login_at")),
+    }
+
+
 def _parse_search_query(query: str) -> dict[str, str]:
     filters: dict[str, str] = {}
     for part in query.split():
@@ -136,6 +152,44 @@ class IncidentCreate(BaseModel):
                 ip_address(value)
             except ValueError as exc:
                 raise ValueError("Adresse IP source invalide") from exc
+        return value
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    role: str
+    scope: str
+    is_active: bool = True
+
+    @field_validator("username", "email", "password", "role", "scope")
+    @classmethod
+    def _required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Champ obligatoire")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def _valid_email(cls, value: str) -> str:
+        if "@" not in value or value.startswith("@") or value.endswith("@"):
+            raise ValueError("Email invalide")
+        return value.lower()
+
+    @field_validator("role")
+    @classmethod
+    def _valid_role(cls, value: str) -> str:
+        if value not in VALID_ROLES:
+            raise ValueError("Role invalide")
+        return value
+
+    @field_validator("scope")
+    @classmethod
+    def _valid_scope(cls, value: str) -> str:
+        if value not in VALID_SCOPES:
+            raise ValueError("Perimetre invalide")
         return value
 
 
@@ -347,9 +401,11 @@ def dashboard():
 @router.get("/incidents")
 def incidents(status: str | None = Query(None)):
     sql = """
-        SELECT i.*, u.username AS assignee
+        SELECT i.*, u.username AS assignee, ar.rule_name
         FROM incidents i
         LEFT JOIN users u ON u.id = i.assigned_to
+        LEFT JOIN alerts a ON a.id = i.alert_id
+        LEFT JOIN attack_rules ar ON ar.id = a.rule_id
     """
     params: list[Any] = []
     if status and status != "Tous":
@@ -695,16 +751,62 @@ def users():
         rows = cur.fetchall()
 
     return [
-        {
-            "id": str(r["id"]),
-            "username": r["username"],
-            "role": r["role"],
-            "scope": r["scope"],
-            "status": r["status"],
-            "last": _fmt_datetime(r.get("last_login_at")),
-        }
-        for r in rows
+        _map_user(r) for r in rows
     ]
+
+
+@router.post("/users", status_code=201)
+def create_user(payload: UserCreate):
+    with get_conn() as conn:
+        cur = conn.cursor()
+
+        cur.execute("SELECT 1 FROM users WHERE username = %s", [payload.username])
+        if cur.fetchone():
+            raise HTTPException(400, "Nom d'utilisateur deja utilise")
+
+        cur.execute("SELECT 1 FROM users WHERE email = %s", [payload.email])
+        if cur.fetchone():
+            raise HTTPException(400, "Email deja utilise")
+
+        cur.execute(
+            """
+            INSERT INTO users (
+                username,
+                email,
+                password_hash,
+                role,
+                scope,
+                is_active,
+                last_login_at,
+                created_at,
+                updated_at
+            )
+            VALUES (
+                %s,
+                %s,
+                crypt(%s, gen_salt('bf')),
+                %s,
+                %s,
+                %s,
+                NULL,
+                now(),
+                now()
+            )
+            RETURNING id, username, role, scope, is_active, last_login_at
+            """,
+            [
+                payload.username,
+                payload.email,
+                payload.password,
+                payload.role,
+                payload.scope,
+                payload.is_active,
+            ],
+        )
+        row = cur.fetchone()
+        conn.commit()
+
+    return _map_user(row)
 
 
 @router.get("/rules")

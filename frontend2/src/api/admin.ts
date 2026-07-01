@@ -116,6 +116,15 @@ export type UserRow = {
   last: string;
 };
 
+export type CreateUserPayload = {
+  username: string;
+  email: string;
+  password: string;
+  role: string;
+  scope: string;
+  is_active: boolean;
+};
+
 export type RuleRow = {
   id: string;
   name: string;
@@ -157,6 +166,8 @@ export const adminApi = {
     fetchJson<LogSearchData>("/logs/search", { q, range }),
   ueba: () => fetchJson<UebaData>("/ueba"),
   users: () => fetchJson<UserRow[]>("/users"),
+  createUser: (payload: CreateUserPayload) =>
+    postJson<UserRow>("/users", payload),
   rules: () => fetchJson<RuleRow[]>("/rules"),
   infra: () => fetchJson<InfraData>("/infra"),
 };

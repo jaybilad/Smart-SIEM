@@ -201,7 +201,8 @@ CREATE TABLE incident_actions (
   executed_by       uuid REFERENCES users(id),   -- nullable: exécution automatique SOAR
   execution_status  varchar(20) NOT NULL DEFAULT 'En attente'
                     CHECK (execution_status IN ('En attente', 'Succès', 'Échec')),
-  execution_time    timestamp
+  execution_time    timestamp,
+  action_note       text
 );
 
 -- ---------------------------------------------------------------------

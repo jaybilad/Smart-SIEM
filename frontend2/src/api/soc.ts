@@ -1,4 +1,4 @@
-const API_BASE = "/api/admin";
+const API_BASE = "/api/soc";
 
 async function fetchJson<T>(path: string, params?: Record<string, string>, init?: RequestInit): Promise<T> {
   const url = new URL(`${API_BASE}${path}`, window.location.origin);
@@ -7,9 +7,34 @@ async function fetchJson<T>(path: string, params?: Record<string, string>, init?
   }
   const res = await fetch(url.toString(), init);
   if (!res.ok) {
-    throw new Error(`API ${path} — ${res.status}`);
+    throw new Error(await errorMessage(res, path));
   }
   return res.json() as Promise<T>;
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, path));
+  }
+  return res.json() as Promise<T>;
+}
+
+async function errorMessage(res: Response, path: string): Promise<string> {
+  try {
+    const data = await res.json();
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((d: { msg?: string } | string) => typeof d === "string" ? d : d.msg ?? String(d)).join(" ; ");
+    }
+  } catch {
+    // Response body is not JSON.
+  }
+  return `API ${path} (${res.status})`;
 }
 
 export type SocIncidentRow = {
@@ -49,6 +74,48 @@ export type SocDashboardData = {
     ueba_top_user: string | null;
     log_volume: { t: string; v: number }[];
     top_ips: { ip: string; count: number; sev: string }[];
+  };
+};
+
+export type SocUserRow = {
+  id: string;
+  username: string;
+  role: string;
+  scope: string;
+  status: string;
+  last: string;
+};
+
+export type SocTakeIncidentResponse = {
+  success: boolean;
+  incident: {
+    id: string;
+    uuid: string;
+    title: string;
+    status: string;
+    assigned_to: string | null;
+    updated_at: string;
+  };
+};
+
+export type SocIncidentActionRow = {
+  id: string;
+  action_name: string;
+  action_note: string;
+  executed_by: string;
+  execution_status: string;
+  execution_time: string;
+};
+
+export type SocAddActionResponse = {
+  success: boolean;
+  action: {
+    id: string;
+    incident_id: string;
+    executed_by: string;
+    execution_status: string;
+    execution_time: string;
+    action_note: string;
   };
 };
 
@@ -92,6 +159,13 @@ export const socApi = {
     fetchJson<SocIncidentRow[]>("/incidents", status ? { status } : undefined),
   updateIncidentStatus: (uuid: string, status: string) =>
     fetchJson<SocIncidentRow>(`/incidents/${uuid}/status`, { status }, { method: "PATCH" }),
+  users: () => fetchJson<SocUserRow[]>("/users"),
+  takeIncident: (uuid: string, analystId: string) =>
+    postJson<SocTakeIncidentResponse>(`/incidents/${uuid}/take`, { analyst_id: analystId }),
+  incidentActions: (uuid: string) =>
+    fetchJson<SocIncidentActionRow[]>(`/incidents/${uuid}/actions`),
+  addIncidentAction: (uuid: string, payload: { analyst_id: string; action_note: string; execution_status: string }) =>
+    postJson<SocAddActionResponse>(`/incidents/${uuid}/actions`, payload),
   searchLogs: (q: string, range: string) =>
     fetchJson<SocLogSearchData>("/logs/search", { q, range }),
   playbooks: () => fetchJson<SocPlaybookRow[]>("/playbooks"),

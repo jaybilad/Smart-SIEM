@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, X, Loader2 } from "lucide-react";
+import { Edit2, Trash2, X, Loader2 } from "lucide-react";
 import { adminApi, type RuleRow } from "../../api/admin";
 
 const SEV_STYLE: Record<string, string> = {
@@ -44,10 +44,7 @@ export default function RulesScreen() {
           <h2 className="text-sm font-semibold text-foreground">Règles de Corrélation</h2>
           <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{rules.filter((r) => r.on).length} règles actives sur {rules.length} — PostgreSQL</p>
         </div>
-        <button onClick={() => setOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-mono rounded-lg transition-colors shadow">
-          <Plus className="w-3.5 h-3.5" /> Créer une règle
-        </button>
+      
       </div>
 
       {loading ? (
