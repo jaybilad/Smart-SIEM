@@ -547,7 +547,7 @@ def ueba():
                 "last": _fmt_time(r.get("last_activity_at")),
                 "delta": f"+{r['delta_24h']}" if r["delta_24h"] > 0 else "0",
                 "detail": r.get("summary") or "—",
-                "model_version": r.get("model_version", "UEBA v3.1"),
+                "model_version": r.get("model_version") or "—",
             }
             for r in rows
         ],

@@ -7,6 +7,7 @@ from app.core.config import CORS_ORIGINS
 from app.core.db import get_conn
 from app.routers.admin import router as admin_router
 from app.routers.ingest import router as ingest_router
+from app.routers.lecteur import router as lecteur_router
 from app.syslog_receiver.server import start_syslog_servers
 
 
@@ -37,6 +38,7 @@ app.add_middleware(
 
 app.include_router(ingest_router, prefix="/api/logs", tags=["ingest"])
 app.include_router(admin_router, prefix="/api", tags=["admin"])
+app.include_router(lecteur_router)
 
 
 @app.get("/", summary="Health check")
