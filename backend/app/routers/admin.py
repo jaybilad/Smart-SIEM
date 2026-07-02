@@ -8,6 +8,15 @@ from app.core.db import get_conn
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+from elasticsearch import Elasticsearch
+# Réutilise la même configuration sécurisée que dans ingest.py
+es = Elasticsearch(
+    "https://127.0.0.1:9200",
+    http_auth=("elastic", "B1Ak4Zp6pWIFuTVjqudT"),
+    ca_certs="C:/elasticsearch7/config/cert.pem",  # Modifie le chemin si nécessaire
+    verify_certs=False,
+)
+
 STATUS_LABEL = {
     "OPEN": "Ouvert",
     "IN_PROGRESS": "En cours",
@@ -346,124 +355,132 @@ def search_logs(
     range: str = Query("24h"),
     limit: int = Query(50, le=500),
 ):
-    seconds = RANGE_SECONDS.get(range, RANGE_SECONDS["24h"])
+    # 1. Gestion de la plage de temps pour Elasticsearch
+    es_range = range.replace("j", "d")
+    
+    must_conditions = [
+        {"range": {"timestamp": {"gte": f"now-{es_range}"}}}
+    ]
+
     filters = _parse_search_query(q)
 
-    conditions = ['l."timestamp" >= now() - make_interval(secs => %s)']
-    params: list[Any] = [seconds]
+    if filters:
+        if "event_type" in filters:
+            must_conditions.append({"wildcard": {"event_type": f"*{filters['event_type'].lower()}*"}})
+        if "src_ip" in filters or "source_ip" in filters:
+            ip_val = filters.get("src_ip") or filters.get("source_ip")
+            must_conditions.append({"wildcard": {"source_ip": f"*{ip_val}*"}})
+        if "sev" in filters or "severity" in filters:
+            sev_val = filters.get("sev") or filters.get("severity")
+            must_conditions.append({"term": {"severity": sev_val.upper()}})
+        if "user" in filters and filters["user"] != "*":
+            must_conditions.append({"wildcard": {"username": f"*{filters['user'].lower()}*"}})
+    elif q.strip():
+        must_conditions.append({
+            "multi_match": {
+                "query": q.strip(),
+                "fields": ["raw_message", "event_type", "username", "source_ip"],
+                "fuzziness": "AUTO"
+            }
+        })
 
-    event_type = filters.get("event_type")
-    if event_type:
-        conditions.append("l.event_type::text ILIKE %s")
-        params.append(event_type.replace("*", "%"))
+    es_query = {
+        "query": {
+            "bool": {
+                "must": must_conditions
+            }
+        },
+        "size": limit,
+        "sort": [{"timestamp": {"order": "desc"}}]
+    }
 
-    src_ip = filters.get("src_ip") or filters.get("source_ip")
-    if src_ip:
-        conditions.append("l.source_ip::text ILIKE %s")
-        params.append(src_ip.replace("*", "%"))
+    # 2. Exécution de la recherche principale
+    try:
+        response = es.search(index="logs", body=es_query)
+        hits = response["hits"]["hits"]
+        total_events = response["hits"]["total"]["value"] if isinstance(response["hits"]["total"], dict) else response["hits"]["total"]
+    except Exception as e:
+        print(f"[❌ Erreur Elasticsearch Hits] {e}")
+        hits = []
+        total_events = 0
 
-    severity = filters.get("sev") or filters.get("severity")
-    if severity:
-        conditions.append("l.severity::text = %s")
-        params.append(severity.upper())
+    # 3. Récupération des métriques agrégées ET du volume temporel (Axe X = 't')
+    aggs_query = {
+        "query": {"bool": {"must": must_conditions}},
+        "size": 0,
+        "aggs": {
+            "unique_sources": {"cardinality": {"field": "source_ip.keyword"}},
+            "unique_users": {"cardinality": {"field": "username.keyword"}},
+            "log_volume": {
+                "date_histogram": {
+                    "field": "timestamp",
+                    "fixed_interval": "1h" if range in ["1h", "6h", "24h"] else "1d",
+                    "format": "HH'h'" if range in ["1h", "6h", "24h"] else "dd/MM"
+                }
+            }
+        }
+    }
+    
+    unique_sources = 0
+    unique_users = 0
+    volume = []
+    
+    try:
+        aggs_res = es.search(index="logs", body=aggs_query)
+        unique_sources = aggs_res["aggregations"]["unique_sources"]["value"] if "unique_sources" in aggs_res["aggregations"] else 0
+        unique_users = aggs_res["aggregations"]["unique_users"]["value"] if "unique_users" in aggs_res["aggregations"] else 0
+        
+        # Extraction du volume pour alimenter le graphique Recharts
+        if "log_volume" in aggs_res["aggregations"]:
+            buckets = aggs_res["aggregations"]["log_volume"]["buckets"]
+            volume = [{"t": b["key_as_string"], "v": b["doc_count"]} for b in buckets]
+    except Exception as e:
+        print(f"[❌ Erreur Elasticsearch Aggs] {e}")
 
-    user = filters.get("user")
-    if user and user != "*":
-        conditions.append('l."user" ILIKE %s')
-        params.append(user.replace("*", "%"))
+    # 4. Requête PostgreSQL (Règles déclenchées)
+    try:
+        seconds = RANGE_SECONDS.get(range, RANGE_SECONDS["24h"])
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT COUNT(DISTINCT a.id) AS triggered_rules
+                    FROM alerts a
+                    WHERE a.created_at >= now() - make_interval(secs => %s)
+                    """,
+                    [seconds],
+                )
+                triggered = cur.fetchone()["triggered_rules"]
+    except Exception as e:
+        print(f"[❌ Erreur PostgreSQL Alerts] {e}")
+        triggered = 0
 
-    if q.strip() and not filters:
-        conditions.append(
-            "(l.raw_message ILIKE %s OR l.event_type::text ILIKE %s OR l.\"user\" ILIKE %s OR l.source_ip::text ILIKE %s)"
-        )
-        like = f"%{q.strip()}%"
-        params.extend([like, like, like, like])
-
-    where = " AND ".join(conditions)
-
-    with get_conn() as conn:
-        cur = conn.cursor()
-
-        cur.execute(
-            f"""
-            SELECT COUNT(*) AS total,
-                   COUNT(DISTINCT l.source_ip) AS unique_sources,
-                   COUNT(DISTINCT l."user") FILTER (WHERE l."user" IS NOT NULL) AS unique_users
-            FROM logs l
-            WHERE {where}
-            """,
-            params,
-        )
-        stats_row = cur.fetchone()
-
-        cur.execute(
-            f"""
-            SELECT COUNT(DISTINCT a.id) AS triggered_rules
-            FROM alerts a
-            WHERE a.created_at >= now() - make_interval(secs => %s)
-            """,
-            [seconds],
-        )
-        triggered = cur.fetchone()["triggered_rules"]
-
-        cur.execute(
-            f"""
-            SELECT to_char(date_trunc('hour', l."timestamp"), 'HH24"h"') AS h,
-                   COUNT(*) AS v
-            FROM logs l
-            WHERE {where}
-            GROUP BY 1
-            ORDER BY MIN(l."timestamp")
-            """,
-            params,
-        )
-        volume = cur.fetchall()
-
-        cur.execute(
-            f"""
-            SELECT l.id::text AS id,
-                   l."timestamp" AS ts,
-                   l.source_ip::text AS src,
-                   COALESCE(l.destination_ip::text, '—') AS dst,
-                   l.event_type::text AS event,
-                   COALESCE(l."user", 'N/A') AS user,
-                   COALESCE(l.raw_message, '—') AS detail,
-                   l.severity::text AS sev,
-                   COALESCE(h.hostname::text, 'N/A') AS machine
-            FROM logs l
-            LEFT JOIN hosts h ON h.id = l.host_id
-            WHERE {where}
-            ORDER BY l."timestamp" DESC
-            LIMIT %s
-            """,
-            [*params, limit],
-        )
-        rows = cur.fetchall()
+    # 5. Reconstruction du tableau de résultats attendu par le frontend
+    results = []
+    for hit in hits:
+        source = hit["_source"]
+        results.append({
+            "id": hit["_id"],
+            "ts": source.get("timestamp", ""),
+            "src": source.get("source_ip", "—"),
+            "dst": source.get("destination_ip", "—"),
+            "event": source.get("event_type", "—"),
+            "user": source.get("username", "N/A"),
+            "detail": source.get("raw_message", "—"),
+            "sev": source.get("severity", "—"),
+            "machine": source.get("host", "N/A")
+        })
 
     return {
         "stats": {
-            "total_events": stats_row["total"],
-            "unique_sources": stats_row["unique_sources"],
-            "unique_users": stats_row["unique_users"],
+            "total_events": total_events,
+            "unique_sources": unique_sources,
+            "unique_users": unique_users,
             "triggered_rules": triggered,
         },
         "volume": volume,
-        "results": [
-            {
-                "id": r["id"],
-                "ts": _fmt_iso(r["ts"]),
-                "src": r["src"] or "—",
-                "dst": r["dst"],
-                "event": r["event"],
-                "user": r["user"],
-                "detail": r["detail"],
-                "sev": r["sev"],
-                "machine": r["machine"],
-            }
-            for r in rows
-        ],
+        "results": results,
     }
-
 
 @router.get("/playbooks")
 def playbooks():

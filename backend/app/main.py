@@ -46,11 +46,14 @@ async def health_check():
     db_ok = False
     try:
         with get_conn() as conn:
-            conn.cursor().execute("SELECT 1")
+            # Syntaxe correcte pour psycopg3
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
             db_ok = True
-    except Exception:
+    except Exception as e:
+        print(f"❌ DB Error: {e}")
         db_ok = False
-
+    
     return {
         "status": "ok" if db_ok else "degraded",
         "service": "smart-siem-log-ingestion",

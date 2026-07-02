@@ -86,18 +86,21 @@ export default function SearchScreen() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5">
-            <p className="text-sm font-medium text-foreground mb-3">Timeline — Volume d'événements</p>
-            <ResponsiveContainer width="100%" height={150}>
-              <BarChart data={data.volume.length ? data.volume : [{ h: "—", v: 0 }]} barSize={16} margin={{ left: -10, right: 4, top: 4, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" vertical={false} />
-                <XAxis dataKey="h" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={40}
-                  tickFormatter={(v) => `${v}`} />
-                <Tooltip content={<ChartTip />} />
-                <Bar dataKey="v" name="Événements" fill="#06b6d4" opacity={0.75} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <p className="text-sm font-medium text-foreground mb-3">Timeline — Volume d'événements</p>
+          <ResponsiveContainer width="100%" height={150}>
+            {/* Remplacement de la clé de secours 'h' par 't' */}
+            <BarChart data={data.volume.length ? data.volume : [{ t: "—", v: 0 }]} barSize={16} margin={{ left: -10, right: 4, top: 4, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" vertical={false} />
+              
+              {/* Modification cruciale de la clé de l'axe X : dataKey="t" */}
+              <XAxis dataKey="t" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
+              
+              <YAxis tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} width={40} tickFormatter={(v) => `${v}`} />
+              <Tooltip content={<ChartTip />} />
+              <Bar dataKey="v" name="Événements" fill="#06b6d4" opacity={0.75} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b border-border">
