@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {  Mail, Lock, Eye, EyeOff, AlertTriangle, Check, Wifi } from "lucide-react";
 import logoImage from '../assets/logo.png';
+import { login as loginUser } from "../api/auth";
 
 // ── MATRIX CANVAS ─────────────────────────────────────────────────────────────
 
@@ -129,20 +130,20 @@ function Waveform() {
 export default function Login() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
-  const [emailFocus, setEmailFocus] = useState(false);
+  const [usernameFocus, setUsernameFocus] = useState(false);
   const [pwdFocus, setPwdFocus] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ username?: string; password?: string; form?: string }>({});
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: typeof errors = {};
-    if (!email.trim()) errs.email = "Adresse email requise";
+    if (!username.trim()) errs.username = "Nom d'utilisateur requis";
     if (!password.trim()) errs.password = "Mot de passe requis";
     if (Object.keys(errs).length) {
       setErrors(errs);
@@ -151,14 +152,21 @@ export default function Login() {
     setErrors({});
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const session = await loginUser(username, password);
       setLoading(false);
       setSuccess(true);
 
       setTimeout(() => {
-        navigate("/dashboard");
-      }, 1500);
-    }, 2600);
+        navigate(session.redirect_to, { replace: true });
+      }, 700);
+    } catch (error) {
+      setLoading(false);
+      setSuccess(false);
+      setErrors({
+        form: error instanceof Error ? error.message : "Connexion impossible",
+      });
+    }
   };
 
   const inputCls = (focus: boolean, err: boolean) => ({
@@ -197,7 +205,7 @@ export default function Login() {
       : btnHover && !loading
         ? "var(--glow-cyan-lg)"
         : "var(--glow-cyan-md)",
-    cursor: loading ? "not-allowed" : "pointer",
+    cursor: loading || success ? "not-allowed" : "pointer",
     transition: "all var(--duration-normal) var(--timing-ease)",
     border: "none",
   };
@@ -375,39 +383,53 @@ export default function Login() {
 
             {/* ── Form ── */}
             <form onSubmit={handleSubmit} className="space-y-4">
+              {errors.form && (
+                <div
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-[10px] font-mono"
+                  style={{
+                    color: "var(--color-red-800)",
+                    background: "var(--color-red-50)",
+                    border: "1px solid var(--border-red-medium)",
+                  }}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{errors.form}</span>
+                </div>
+              )}
+
               {/* Email */}
               <div>
                 <label
                   className="block text-[10px] font-mono mb-1.5 tracking-wider"
                   style={{ color: "var(--color-cyan-500)" }}
                 >
-                  ADRESSE EMAIL
+                  NOM D'UTILISATEUR
                 </label>
                 <div className="relative">
                   <Mail
                     className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-                    style={iconColor(emailFocus)}
+                    style={iconColor(usernameFocus)}
                   />
                   <input
-                    type="email"
-                    value={email}
+                    type="text"
+                    value={username}
                     onChange={(e) => {
-                      setEmail(e.target.value);
-                      setErrors((p) => ({ ...p, email: undefined }));
+                      setUsername(e.target.value);
+                      setErrors((p) => ({ ...p, username: undefined, form: undefined }));
                     }}
-                    onFocus={() => setEmailFocus(true)}
-                    onBlur={() => setEmailFocus(false)}
-                    placeholder="utilisateur@siem.corp"
+                    onFocus={() => setUsernameFocus(true)}
+                    onBlur={() => setUsernameFocus(false)}
+                    placeholder="j.martin"
                     className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-mono placeholder:text-slate-700"
-                    style={inputCls(emailFocus, !!errors.email)}
+                    style={inputCls(usernameFocus, !!errors.username)}
                   />
                 </div>
-                {errors.email && (
+                {errors.username && (
                   <p
                     className="text-[10px] font-mono mt-1.5 ml-1"
                     style={{ color: "var(--color-red-800)" }}
                   >
-                    ⚠ {errors.email}
+                    ⚠ {errors.username}
                   </p>
                 )}
               </div>
@@ -430,7 +452,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
-                      setErrors((p) => ({ ...p, password: undefined }));
+                      setErrors((p) => ({ ...p, password: undefined, form: undefined }));
                     }}
                     onFocus={() => setPwdFocus(true)}
                     onBlur={() => setPwdFocus(false)}
@@ -487,7 +509,7 @@ export default function Login() {
               {/* ── Submit button ── */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || success}
                 onMouseEnter={() => setBtnHover(true)}
                 onMouseLeave={() => setBtnHover(false)}
                 className="w-full py-3.5 rounded-xl text-sm font-bold text-white tracking-widest relative overflow-hidden"

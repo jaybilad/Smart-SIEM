@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, RefreshCw, Eye, Lock, LayoutDashboard, AlertTriangle, Search, Brain } from "lucide-react";
+import { clearSession, getStoredUser } from "../../api/auth";
 import LecteurDashboardScreen from "../../components/lecteur-screens/LecteurDashboardScreen";
 import LecteurIncidentScreen from "../../components/lecteur-screens/LecteurIncidentScreen";
 import LecteurSearchScreen from "../../components/lecteur-screens/LecteurSearchScreen";
@@ -27,11 +28,16 @@ export default function LecteurDashboard() {
   const [currentPage, setCurrentPage] = useState<Screen>("dashboard");
   const navigate = useNavigate();
   const { title, sub } = SCREEN_META[currentPage];
+  const user = getStoredUser();
+  const initials = (user?.username ?? "LE")
+    .split(/[.\s_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "LE";
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("user");
+    clearSession();
     navigate("/", { replace: true });
   };
 
@@ -72,11 +78,11 @@ export default function LecteurDashboard() {
           <div className="flex flex-col gap-2.5 bg-amber-500/6 border border-amber-500/15 rounded-xl px-3 py-3">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-full bg-linear-to-br from-amber-700 to-amber-900 flex items-center justify-center text-[10px] font-bold text-amber-200 shrink-0">
-                CM
+                {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-mono text-white leading-tight">c.martin</p>
-                <p className="text-[9px] font-mono text-amber-400/80">Lecteur — Audit &amp; Conformité</p>
+                <p className="text-[11px] font-mono text-white leading-tight">{user?.username ?? "lecteur"}</p>
+                <p className="text-[9px] font-mono text-amber-400/80">Lecteur - {user?.scope ?? "Audit"}</p>
               </div>
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="En ligne" />
             </div>
@@ -192,7 +198,7 @@ export default function LecteurDashboard() {
           Session auditée de manière transparente. Toutes vos actions de consultation d'alertes, requêtes de recherche et connexions/déconnexions sont enregistrées en temps réel dans le journal d'audit du SIEM.
         </span>
         <span className="ml-auto text-[9px] font-mono text-slate-700 shrink-0 hidden lg:block">
-          c.martin — Lecteur — Audit &amp; Conformité
+          {user?.username ?? "lecteur"} - Lecteur - {user?.scope ?? "Audit"}
         </span>
       </div>
     </div>

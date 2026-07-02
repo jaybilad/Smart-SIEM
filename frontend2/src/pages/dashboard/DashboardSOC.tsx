@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import logoImage from '../../assets/logo.png';
 import {
   LayoutDashboard, AlertTriangle, Search, BookOpen,
-  Bell, RefreshCw, Activity, Lock,
+  Bell, RefreshCw, Activity, Lock, LogOut,
 } from "lucide-react";
+import { clearSession, getStoredUser } from "../../api/auth";
 import SOCDashboardScreen from "../../components/soc-screens/SOCDashboardScreen";
 import SOCIncidentsScreen from "../../components/soc-screens/SOCIncidentScreen";
 import SOCSearchScreen from "../../components/soc-screens/SOCSearchScreen";
@@ -21,6 +23,19 @@ const SCREEN_META: Record<Screen, { title: string; sub: string }> = {
 export default function SOCDashboard() {
   const [screen, setScreen] = useState<Screen>("dashboard");
   const { title, sub } = SCREEN_META[screen];
+  const navigate = useNavigate();
+  const user = getStoredUser();
+  const initials = (user?.username ?? "SO")
+    .split(/[.\s_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "SO";
+
+  const handleLogout = () => {
+    clearSession();
+    navigate("/", { replace: true });
+  };
 
   const NAV = [
     { id: "dashboard" as Screen, label: "Vue d'ensemble",               icon: LayoutDashboard },
@@ -54,11 +69,11 @@ export default function SOCDashboard() {
         <div className="px-3 py-2.5 border-b border-[#1a2540]">
           <div className="flex items-center gap-2.5 bg-blue-500/8 border border-blue-500/20 rounded-xl px-3 py-2.5">
             <div className="w-7 h-7 rounded-full bg-linear-to-br from-blue-600 to-blue-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-              AD
+              {initials}
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-mono text-white leading-tight">a.dupont</p>
-              <p className="text-[9px] font-mono text-blue-400">Analyste SOC — Filiale Europe</p>
+              <p className="text-[11px] font-mono text-white leading-tight">{user?.username ?? "analyste"}</p>
+              <p className="text-[9px] font-mono text-blue-400">{user?.role ?? "Analyste"} - {user?.scope ?? "SOC"}</p>
             </div>
             <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="En ligne" />
           </div>
@@ -91,7 +106,7 @@ export default function SOCDashboard() {
         <div className="px-3 pb-2">
           <div className="bg-blue-500/8 border border-blue-500/15 rounded-xl px-3 py-2">
             <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">Périmètre assigné</p>
-            <p className="text-[11px] font-mono text-blue-300 font-semibold">Filiale Europe</p>
+            <p className="text-[11px] font-mono text-blue-300 font-semibold">{user?.scope ?? "SOC"}</p>
           </div>
         </div>
 
@@ -106,6 +121,14 @@ export default function SOCDashboard() {
             495 logs/s — Filiale EU
           </div>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="m-2.5 px-3 py-2 border border-[#1a2540] rounded-lg text-muted-foreground hover:text-blue-300 text-xs font-mono flex items-center gap-2 transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Déconnexion
+        </button>
       </aside>
 
       {/* ── MAIN AREA ── */}
@@ -143,7 +166,7 @@ export default function SOCDashboard() {
       <div className="fixed bottom-0 left-56 right-0 h-6 bg-[#060a12]/95 border-t border-[#1a2540] backdrop-blur-sm flex items-center px-4 z-30">
         <Lock className="w-2.5 h-2.5 text-slate-700 mr-2 shrink-0" />
         <span className="text-[9px] font-mono text-slate-700">
-          Toutes vos actions sont journalisées de manière permanente dans l'audit log SIEM — a.dupont — Filiale Europe
+          Toutes vos actions sont journalisées de manière permanente dans l'audit log SIEM - {user?.username ?? "analyste"} - {user?.scope ?? "SOC"}
         </span>
       </div>
     </div>

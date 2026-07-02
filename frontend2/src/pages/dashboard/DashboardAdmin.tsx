@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Settings, ChevronDown, ChevronRight, LogOut, Zap, BarChart3, AlertTriangle, Search, Activity, Users, Zap as ZapIcon, Server } from "lucide-react";
+import { clearSession, getStoredUser } from "../../api/auth";
 import { adminApi } from "../../api/admin";
 import DashboardScreen from "../../components/admin-screens/AdminDashboardScreen";
 import IncidentsScreen from "../../components/admin-screens/AdminIncidentScreen";
@@ -33,6 +34,13 @@ export default function AdminDashboard() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [ingestionRate, setIngestionRate] = useState<number | null>(null);
   const navigate = useNavigate();
+  const user = getStoredUser();
+  const initials = (user?.username ?? "AD")
+    .split(/[.\s_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "AD";
 
   useEffect(() => {
     adminApi.dashboard()
@@ -43,9 +51,7 @@ export default function AdminDashboard() {
   const isSettings = ["users", "rules", "infra"].includes(currentPage);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("user");
+    clearSession();
     navigate("/", { replace: true });
   };
 
@@ -91,11 +97,11 @@ export default function AdminDashboard() {
         <div className="px-3 py-2.5 border-b border-[#1a2540]">
           <div className="flex items-center gap-2.5 bg-violet-500/8 border border-violet-500/20 rounded-xl px-3 py-2">
             <div className="w-7 h-7 rounded-full bg-linear-to-br from-violet-600 to-violet-800 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-              JM
+              {initials}
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-mono text-white leading-tight">j.martin</p>
-              <p className="text-[9px] font-mono text-violet-400">Administrateur — Global</p>
+              <p className="text-[11px] font-mono text-white leading-tight">{user?.username ?? "admin"}</p>
+              <p className="text-[9px] font-mono text-violet-400">Administrateur - {user?.scope ?? "Global"}</p>
             </div>
             <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
           </div>

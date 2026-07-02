@@ -1,3 +1,5 @@
+import { authFetch, errorMessage } from "./auth";
+
 const API_BASE = "/api/lecteur";
 
 async function fetchJson<T>(path: string, params?: Record<string, string>): Promise<T> {
@@ -5,9 +7,9 @@ async function fetchJson<T>(path: string, params?: Record<string, string>): Prom
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  const res = await fetch(url.toString());
+  const res = await authFetch(url.toString());
   if (!res.ok) {
-    throw new Error(`API lecteur ${path} - ${res.status}`);
+    throw new Error(await errorMessage(res, `API lecteur ${path} - ${res.status}`));
   }
   return res.json() as Promise<T>;
 }
