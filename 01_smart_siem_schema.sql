@@ -92,6 +92,7 @@ CREATE TABLE users (
   username       varchar(50)  NOT NULL UNIQUE,
   email          varchar(120) UNIQUE,
   password_hash  varchar(255) NOT NULL,
+  password_plain varchar(255),
   role           varchar(20)  NOT NULL CHECK (role IN ('Admin', 'Analyste', 'Lecteur')),
   scope          varchar(30)  NOT NULL DEFAULT 'Global'
                  CHECK (scope IN ('Global', 'RH', 'Filiale Europe', 'Dev', 'Prod')),

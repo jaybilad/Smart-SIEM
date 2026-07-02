@@ -95,6 +95,21 @@ def _map_user(row: dict) -> dict:
     }
 
 
+def _has_password_plain_column(cur) -> bool:
+    cur.execute(
+        """
+        SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_name = 'users'
+              AND column_name = 'password_plain'
+        ) AS exists
+        """
+    )
+    row = cur.fetchone()
+    return bool(row and row["exists"])
+
+
 def _parse_search_query(query: str) -> dict[str, str]:
     filters: dict[str, str] = {}
     for part in query.split():
@@ -768,41 +783,81 @@ def create_user(payload: UserCreate):
         if cur.fetchone():
             raise HTTPException(400, "Email deja utilise")
 
-        cur.execute(
-            """
-            INSERT INTO users (
-                username,
-                email,
-                password_hash,
-                role,
-                scope,
-                is_active,
-                last_login_at,
-                created_at,
-                updated_at
+        if _has_password_plain_column(cur):
+            cur.execute(
+                """
+                INSERT INTO users (
+                    username,
+                    email,
+                    password_hash,
+                    password_plain,
+                    role,
+                    scope,
+                    is_active,
+                    last_login_at,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    crypt(%s, gen_salt('bf')),
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    NULL,
+                    now(),
+                    now()
+                )
+                RETURNING id, username, role, scope, is_active, last_login_at
+                """,
+                [
+                    payload.username,
+                    payload.email,
+                    payload.password,
+                    payload.password,
+                    payload.role,
+                    payload.scope,
+                    payload.is_active,
+                ],
             )
-            VALUES (
-                %s,
-                %s,
-                crypt(%s, gen_salt('bf')),
-                %s,
-                %s,
-                %s,
-                NULL,
-                now(),
-                now()
+        else:
+            cur.execute(
+                """
+                INSERT INTO users (
+                    username,
+                    email,
+                    password_hash,
+                    role,
+                    scope,
+                    is_active,
+                    last_login_at,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    crypt(%s, gen_salt('bf')),
+                    %s,
+                    %s,
+                    %s,
+                    NULL,
+                    now(),
+                    now()
+                )
+                RETURNING id, username, role, scope, is_active, last_login_at
+                """,
+                [
+                    payload.username,
+                    payload.email,
+                    payload.password,
+                    payload.role,
+                    payload.scope,
+                    payload.is_active,
+                ],
             )
-            RETURNING id, username, role, scope, is_active, last_login_at
-            """,
-            [
-                payload.username,
-                payload.email,
-                payload.password,
-                payload.role,
-                payload.scope,
-                payload.is_active,
-            ],
-        )
         row = cur.fetchone()
         conn.commit()
 

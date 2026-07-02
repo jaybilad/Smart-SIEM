@@ -28,12 +28,12 @@ FROM generate_series(1, 20) AS n;
 -- 2. COMPTES SOC (RBAC interface admin)
 -- ---------------------------------------------------------------------
 
-INSERT INTO users (username, email, password_hash, role, scope, is_active, last_login_at) VALUES
-  ('j.martin',  'j.martin@ctu.local',  crypt('changeme1', gen_salt('bf')), 'Admin',    'Global',         true,  now() - interval '25 minutes'),
-  ('l.santos',  'l.santos@ctu.local',  crypt('changeme2', gen_salt('bf')), 'Admin',    'Global',         true,  now() - interval '5 minutes'),
-  ('jeremy',    'jeremy@ctu.local',    crypt('changeme3', gen_salt('bf')), 'Analyste', 'Prod',           true,  now() - interval '3 hours'),
-  ('a.dupont',  'a.dupont@ctu.local',  crypt('changeme4', gen_salt('bf')), 'Analyste', 'Filiale Europe', true,  now() - interval '3 hours'),
-  ('m.legrand', 'm.legrand@ctu.local', crypt('changeme5', gen_salt('bf')), 'Lecteur',  'RH',              true,  now() - interval '1 day');
+INSERT INTO users (username, email, password_hash, password_plain, role, scope, is_active, last_login_at) VALUES
+  ('j.martin',  'j.martin@ctu.local',  crypt('changeme1', gen_salt('bf')), 'changeme1', 'Admin',    'Global',         true,  now() - interval '25 minutes'),
+  ('l.santos',  'l.santos@ctu.local',  crypt('changeme2', gen_salt('bf')), 'changeme2', 'Admin',    'Global',         true,  now() - interval '5 minutes'),
+  ('jeremy',    'jeremy@ctu.local',    crypt('changeme3', gen_salt('bf')), 'changeme3', 'Analyste', 'Prod',           true,  now() - interval '3 hours'),
+  ('a.dupont',  'a.dupont@ctu.local',  crypt('changeme4', gen_salt('bf')), 'changeme4', 'Analyste', 'Filiale Europe', true,  now() - interval '3 hours'),
+  ('m.legrand', 'm.legrand@ctu.local', crypt('changeme5', gen_salt('bf')), 'changeme5', 'Lecteur',  'RH',              true,  now() - interval '1 day');
 
 -- Note : crypt()/gen_salt() nécessitent l'extension pgcrypto (déjà activée
 -- dans 01_smart_siem_schema.sql).
