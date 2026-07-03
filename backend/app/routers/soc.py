@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
 
 from app.core.db import get_conn
@@ -14,6 +14,7 @@ from app.routers.admin import playbooks as admin_playbooks
 from app.routers.admin import search_logs as admin_search_logs
 from app.routers.admin import update_incident_status as admin_update_incident_status
 from app.routers.admin import users as admin_users
+from app.services.audit import set_audit_action
 
 router = APIRouter(prefix="/api/soc", tags=["soc"])
 
@@ -147,8 +148,8 @@ def incidents(status: str | None = Query(None)):
 
 
 @router.patch("/incidents/{incident_id}/status")
-def update_incident_status(incident_id: str, status: str = Query(...)):
-    return admin_update_incident_status(incident_id=incident_id, status=status)
+def update_incident_status(incident_id: str, request: Request, status: str = Query(...)):
+    return admin_update_incident_status(incident_id=incident_id, request=request, status=status)
 
 
 @router.get("/logs/search")
@@ -167,11 +168,11 @@ def users():
 
 
 @router.post("/incidents/{incident_id}/take")
-def take_incident(incident_id: str, payload: TakeIncidentPayload):
+def take_incident(incident_id: str, payload: TakeIncidentPayload, request: Request):
     with get_conn() as conn:
         cur = conn.cursor()
-        _get_incident(cur, incident_id)
-        _get_authorized_analyst(cur, payload.analyst_id)
+        incident = _get_incident(cur, incident_id)
+        analyst = _get_authorized_analyst(cur, payload.analyst_id)
 
         clause, params = _incident_lookup_clause(incident_id)
         cur.execute(
@@ -195,11 +196,18 @@ def take_incident(incident_id: str, payload: TakeIncidentPayload):
         conn.commit()
 
     updated["assignee"] = assignee["username"] if assignee else None
+    set_audit_action(
+        request,
+        (
+            f"Prise en charge de l'incident {_inc_id(updated['id'])} "
+            f"'{incident['title']}' par {analyst['username']}"
+        ),
+    )
     return {"success": True, "incident": _map_take_response(updated)}
 
 
 @router.post("/incidents/{incident_id}/actions")
-def add_incident_action(incident_id: str, payload: IncidentActionPayload):
+def add_incident_action(incident_id: str, payload: IncidentActionPayload, request: Request):
     with get_conn() as conn:
         cur = conn.cursor()
         incident = _get_incident(cur, incident_id)
@@ -230,6 +238,14 @@ def add_incident_action(incident_id: str, payload: IncidentActionPayload):
         action = cur.fetchone()
         conn.commit()
 
+    set_audit_action(
+        request,
+        (
+            f"Ajout d'une action sur l'incident {_inc_id(incident['id'])} "
+            f"'{incident['title']}' par {analyst['username']} "
+            f"avec statut {action['execution_status']}"
+        ),
+    )
     return {
         "success": True,
         "action": {

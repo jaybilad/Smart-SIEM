@@ -29,7 +29,7 @@ def _dashboard_path(role: str) -> str:
 
 
 @router.post("/login")
-def login(payload: LoginPayload):
+def login(payload: LoginPayload, request: Request):
     username = payload.username.strip().lower()
     with get_conn() as conn:
         cur = conn.cursor()
@@ -69,6 +69,7 @@ def login(payload: LoginPayload):
         subject=str(user["id"]),
         claims={"username": user["username"], "role": user["role"], "scope": user["scope"]},
     )
+    request.state.audit_actor = user["username"]
     return {
         "access_token": token,
         "token_type": "bearer",

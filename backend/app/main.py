@@ -12,6 +12,7 @@ from app.routers.auth import router as auth_router
 from app.routers.ingest import router as ingest_router
 from app.routers.lecteur import router as lecteur_router
 from app.routers.soc import router as soc_router
+from app.services.audit import audit_post_request
 from app.syslog_receiver.server import start_syslog_servers
 
 
@@ -43,11 +44,20 @@ app.add_middleware(
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
+    async def call_next_with_audit():
+        response = await call_next(request)
+        if request.method in {"POST", "PATCH", "PUT", "DELETE"}:
+            try:
+                audit_post_request(request, response.status_code)
+            except Exception:
+                pass
+        return response
+
     path = request.url.path
     if request.method == "OPTIONS" or path in {"/", "/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}:
         return await call_next(request)
     if path.startswith("/api/auth/login") or path.startswith("/api/logs"):
-        return await call_next(request)
+        return await call_next_with_audit()
 
     protected_prefixes = {
         "/api/auth/me": {"Admin", "Analyste", "Lecteur"},
@@ -75,7 +85,7 @@ async def auth_middleware(request: Request, call_next):
         return JSONResponse(status_code=403, content={"detail": "Droits insuffisants"})
 
     request.state.user = payload
-    return await call_next(request)
+    return await call_next_with_audit()
 
 
 app.include_router(ingest_router, prefix="/api/logs", tags=["ingest"])

@@ -2,9 +2,10 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
 
+from app.services.audit import set_audit_action
 from app.services.normalizer import normalize_cef, normalize_log, normalize_syslog
 
 
@@ -47,36 +48,40 @@ router = APIRouter()
 
 
 @router.post("", response_model=IngestResponse, summary="Ingestion générique de logs")
-async def ingest_logs(payload: BatchLogPayload):
+async def ingest_logs(payload: BatchLogPayload, request: Request):
     if not payload.logs:
         raise HTTPException(status_code=400, detail="La liste de logs est vide.")
 
     normalized = [normalize_log(log.model_dump()) for log in payload.logs]
+    set_audit_action(request, f"Ingestion de {len(normalized)} log(s) applicatif(s)")
     return {"success": True, "received": len(normalized), "normalized": normalized}
 
 
 @router.post("/raw", response_model=IngestResponse, summary="Ingestion de logs JSON bruts")
-async def ingest_raw_logs(logs: List[Dict[str, Any]] = Body(..., description="Liste de logs JSON bruts")):
+async def ingest_raw_logs(request: Request, logs: List[Dict[str, Any]] = Body(..., description="Liste de logs JSON bruts")):
     if not logs:
         raise HTTPException(status_code=400, detail="La liste de logs est vide.")
 
     normalized = [normalize_log(log) for log in logs]
+    set_audit_action(request, f"Ingestion de {len(normalized)} log(s) JSON brut(s)")
     return {"success": True, "received": len(normalized), "normalized": normalized}
 
 
 @router.post("/syslog", response_model=IngestResponse, summary="Ingestion de messages syslog")
-async def ingest_syslog(payload: List[str] = Body(..., description="Liste de messages syslog bruts")):
+async def ingest_syslog(request: Request, payload: List[str] = Body(..., description="Liste de messages syslog bruts")):
     if not payload:
         raise HTTPException(status_code=400, detail="La liste de messages syslog est vide.")
 
     normalized = [normalize_syslog(raw) for raw in payload]
+    set_audit_action(request, f"Ingestion de {len(normalized)} message(s) syslog")
     return {"success": True, "received": len(normalized), "normalized": normalized}
 
 
 @router.post("/cef", response_model=IngestResponse, summary="Ingestion de messages CEF")
-async def ingest_cef(payload: List[str] = Body(..., description="Liste de messages CEF bruts")):
+async def ingest_cef(request: Request, payload: List[str] = Body(..., description="Liste de messages CEF bruts")):
     if not payload:
         raise HTTPException(status_code=400, detail="La liste de messages CEF est vide.")
 
     normalized = [normalize_cef(raw) for raw in payload]
+    set_audit_action(request, f"Ingestion de {len(normalized)} message(s) CEF")
     return {"success": True, "received": len(normalized), "normalized": normalized}

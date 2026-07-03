@@ -4,10 +4,11 @@ from ipaddress import ip_address
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, field_validator
 
 from app.core.db import get_conn
+from app.services.audit import set_audit_action
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -440,7 +441,7 @@ def incidents(status: str | None = Query(None)):
 
 
 @router.post("/incidents", status_code=201)
-def create_incident(payload: IncidentCreate):
+def create_incident(payload: IncidentCreate, request: Request):
     with get_conn() as conn:
         cur = conn.cursor()
 
@@ -503,11 +504,19 @@ def create_incident(payload: IncidentCreate):
         conn.commit()
 
     row["assignee"] = assignee["username"] if assignee else None
+    set_audit_action(
+        request,
+        (
+            f"Creation de l'incident manuel {_inc_id(row['id'])} "
+            f"'{row['title']}' avec severite {row['severity']}, "
+            f"type d'attaque {payload.attack_type}, cible {row.get('target') or 'non renseignee'}"
+        ),
+    )
     return _map_incident(row)
 
 
 @router.patch("/incidents/{incident_id}/status")
-def update_incident_status(incident_id: str, status: str = Query(...)):
+def update_incident_status(incident_id: str, request: Request, status: str = Query(...)):
     db_status = STATUS_FILTER.get(status)
     if not db_status:
         raise HTTPException(400, f"Statut inconnu : {status}")
@@ -533,6 +542,10 @@ def update_incident_status(incident_id: str, status: str = Query(...)):
             raise HTTPException(404, "Incident introuvable")
         conn.commit()
 
+    set_audit_action(
+        request,
+        f"Changement du statut de l'incident {_inc_id(row['id'])} '{row['title']}' vers {STATUS_LABEL.get(row['status'], row['status'])}",
+    )
     return _map_incident(row)
 
 
@@ -771,7 +784,7 @@ def users():
 
 
 @router.post("/users", status_code=201)
-def create_user(payload: UserCreate):
+def create_user(payload: UserCreate, request: Request):
     with get_conn() as conn:
         cur = conn.cursor()
 
@@ -861,6 +874,14 @@ def create_user(payload: UserCreate):
         row = cur.fetchone()
         conn.commit()
 
+    set_audit_action(
+        request,
+        (
+            f"Creation du compte utilisateur '{row['username']}' "
+            f"avec role {row['role']}, perimetre {row['scope']} "
+            f"et statut {'actif' if row['is_active'] else 'inactif'}"
+        ),
+    )
     return _map_user(row)
 
 
