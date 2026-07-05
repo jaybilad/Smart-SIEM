@@ -11,6 +11,7 @@ from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.ingest import router as ingest_router
 from app.routers.lecteur import router as lecteur_router
+from app.routers.mail import router as mail_router
 from app.routers.soc import router as soc_router
 from app.services.audit import audit_post_request
 from app.syslog_receiver.server import start_syslog_servers
@@ -93,6 +94,7 @@ app.include_router(auth_router)
 app.include_router(admin_router, prefix="/api", tags=["admin"])
 app.include_router(soc_router)
 app.include_router(lecteur_router)
+app.include_router(mail_router)
 
 
 @app.get("/", summary="Health check")
