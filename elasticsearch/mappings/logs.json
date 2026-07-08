@@ -3,15 +3,22 @@
     "properties": {
       "id": { "type": "keyword" },
       "timestamp": { "type": "date" },
+      "perimeter": { "type": "keyword" },
       "source_ip": { "type": "ip" },
+      "destination_ip": { "type": "ip" },
       "host": { "type": "keyword" },
       "user": { "type": "keyword" },
+      "username": { "type": "keyword" },
       "log_type": { "type": "keyword" },
+      "event_type": { "type": "keyword" },
+      "status": { "type": "keyword" },
       "severity": { "type": "keyword" },
       "raw_message": { "type": "text" },
       "tags": { "type": "keyword" },
       "protocol": { "type": "keyword" },
       "port": { "type": "integer" },
+      "target_port": { "type": "integer" },
+      "data_volume": { "type": "long" },
       "country": { "type": "keyword" },
       "risk_score": { "type": "float" }
     }

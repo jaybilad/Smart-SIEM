@@ -1,9 +1,11 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(BASE_DIR / ".env", override=False)
 
 
 # Supporte aussi une typo éventuelle dans le fichier .env (CATABASE_URL)
@@ -15,6 +17,10 @@ def _get_database_url() -> str:
 
 
 DATABASE_URL = _get_database_url()
+ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
+ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "changeme")
+ELASTICSEARCH_LOG_INDEX = os.getenv("ELASTICSEARCH_LOG_INDEX", "logs")
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "smart-siem-dev-secret-change-me")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "480"))

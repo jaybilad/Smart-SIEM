@@ -109,7 +109,7 @@ def audit_post_request(request: Request, status_code: int) -> None:
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO audit_log (actor_username, action, ip_address)
+            INSERT INTO audit_logs (actor_username, action, ip_address)
             VALUES (%s, %s, %s)
             """,
             [_actor_username(request), action, _client_ip(request)],

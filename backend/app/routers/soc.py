@@ -18,7 +18,8 @@ from app.services.audit import set_audit_action
 
 router = APIRouter(prefix="/api/soc", tags=["soc"])
 
-VALID_EXECUTION_STATUSES = {"En attente", "Succès", "Échec"}
+VALID_EXECUTION_STATUSES = {"En attente", "Succes", "Echec"}
+STATUS_ALIASES = {"Succès": "Succes", "Échec": "Echec"}
 MANUAL_PLAYBOOK_NAME = "Action manuelle SOC"
 
 
@@ -42,7 +43,7 @@ class IncidentActionPayload(BaseModel):
     @field_validator("execution_status")
     @classmethod
     def _valid_execution_status(cls, value: str) -> str:
-        value = value.strip()
+        value = STATUS_ALIASES.get(value.strip(), value.strip())
         if value not in VALID_EXECUTION_STATUSES:
             raise ValueError("Statut d'execution invalide")
         return value
@@ -67,11 +68,11 @@ def _get_incident(cur, incident_id: str) -> dict:
     clause, params = _incident_lookup_clause(incident_id)
     cur.execute(
         f"""
-        SELECT i.*, u.username AS assignee, ar.rule_name
+        SELECT i.*, u.username AS assignee, cr.rule_name
         FROM incidents i
-        LEFT JOIN users u ON u.id = i.assigned_to
-        LEFT JOIN alerts a ON a.id = i.alert_id
-        LEFT JOIN attack_rules ar ON ar.id = a.rule_id
+        LEFT JOIN soc_users u ON u.id = i.assigned_to
+        LEFT JOIN alerts a ON a.incident_id = i.id
+        LEFT JOIN correlation_rules cr ON cr.id = a.rule_id
         WHERE {clause}
         LIMIT 1
         """,
@@ -87,7 +88,7 @@ def _get_authorized_analyst(cur, analyst_id: UUID) -> dict:
     cur.execute(
         """
         SELECT id, username, role
-        FROM users
+        FROM soc_users
         WHERE id = %s
         """,
         [analyst_id],
@@ -117,8 +118,8 @@ def _ensure_manual_playbook(cur) -> dict:
 
     cur.execute(
         """
-        INSERT INTO playbooks (attack_type, action_name, description, is_automatic)
-        VALUES (NULL, %s, %s, false)
+        INSERT INTO playbooks (action_name, description, is_automatic)
+        VALUES (%s, %s, false)
         RETURNING id, action_name
         """,
         [MANUAL_PLAYBOOK_NAME, "Action manuelle ajoutee depuis le dashboard SOC."],
@@ -191,7 +192,7 @@ def take_incident(incident_id: str, payload: TakeIncidentPayload, request: Reque
         if not updated:
             raise HTTPException(404, "Incident introuvable")
 
-        cur.execute("SELECT username FROM users WHERE id = %s", [updated["assigned_to"]])
+        cur.execute("SELECT username FROM soc_users WHERE id = %s", [updated["assigned_to"]])
         assignee = cur.fetchone()
         conn.commit()
 
@@ -221,18 +222,16 @@ def add_incident_action(incident_id: str, payload: IncidentActionPayload, reques
                 playbook_id,
                 executed_by,
                 execution_status,
-                execution_time,
-                action_note
+                execution_time
             )
-            VALUES (%s, %s, %s, %s, now(), %s)
-            RETURNING id, incident_id, executed_by, execution_status, execution_time, action_note
+            VALUES (%s, %s, %s, %s, now())
+            RETURNING id, incident_id, executed_by, execution_status, execution_time
             """,
             [
                 incident["id"],
                 playbook["id"],
                 payload.analyst_id,
                 payload.execution_status,
-                payload.action_note,
             ],
         )
         action = cur.fetchone()
@@ -254,7 +253,7 @@ def add_incident_action(incident_id: str, payload: IncidentActionPayload, reques
             "executed_by": analyst["username"],
             "execution_status": action["execution_status"],
             "execution_time": _fmt_iso(action["execution_time"]),
-            "action_note": action.get("action_note") or "",
+            "action_note": payload.action_note,
         },
     }
 
@@ -268,13 +267,12 @@ def incident_actions(incident_id: str):
             """
             SELECT ia.id,
                    p.action_name,
-                   ia.action_note,
                    COALESCE(u.username, 'SYSTEM') AS executed_by,
                    ia.execution_status,
                    ia.execution_time
             FROM incident_actions ia
             JOIN playbooks p ON p.id = ia.playbook_id
-            LEFT JOIN users u ON u.id = ia.executed_by
+            LEFT JOIN soc_users u ON u.id = ia.executed_by
             WHERE ia.incident_id = %s
             ORDER BY ia.execution_time ASC NULLS LAST, ia.id ASC
             """,
@@ -286,7 +284,7 @@ def incident_actions(incident_id: str):
         {
             "id": str(row["id"]),
             "action_name": row["action_name"],
-            "action_note": row.get("action_note") or "",
+            "action_note": "",
             "executed_by": row["executed_by"],
             "execution_status": row["execution_status"],
             "execution_time": _fmt_iso(row.get("execution_time")),
