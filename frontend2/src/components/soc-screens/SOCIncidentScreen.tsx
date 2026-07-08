@@ -24,6 +24,11 @@ function StatusChip({ s }: { s: string }) {
     Ouvert: "bg-blue-500/15 text-blue-400 border border-blue-500/25",
     Nouvelle: "bg-blue-500/15 text-blue-400 border border-blue-500/25",
     "En cours": "bg-orange-500/15 text-orange-400 border border-orange-500/25",
+    Resolu: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
+    Cloture: "bg-slate-500/15 text-slate-400 border border-slate-500/25",
+    Succes: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
+    Echec: "bg-red-500/15 text-red-400 border border-red-500/25",
+    "En attente": "bg-yellow-500/15 text-yellow-400 border border-yellow-500/25",
     "Résolu": "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
     "Clôturé": "bg-slate-500/15 text-slate-400 border border-slate-500/25",
     "Faux positif": "bg-slate-500/15 text-slate-400 border border-slate-500/25",
@@ -35,12 +40,12 @@ function StatusChip({ s }: { s: string }) {
 
 function storedUserHint() {
   const raw = localStorage.getItem("user");
-  if (!raw) return { username: "a.dupont" };
+  if (!raw) return { username: "edgar.stiles" };
   try {
     const parsed = JSON.parse(raw) as { id?: string; username?: string; name?: string };
-    return { id: parsed.id, username: parsed.username ?? parsed.name ?? "a.dupont" };
+    return { id: parsed.id, username: parsed.username ?? parsed.name ?? "edgar.stiles" };
   } catch {
-    return { username: raw || "a.dupont" };
+    return { username: raw || "edgar.stiles" };
   }
 }
 
@@ -75,7 +80,8 @@ export default function SOCIncidentsScreen() {
         const hint = storedUserHint();
         const analyst = userData.find((user) => user.id === hint.id)
           ?? userData.find((user) => user.username === hint.username)
-          ?? userData.find((user) => user.username === "a.dupont")
+          ?? userData.find((user) => user.role === "Analyste")
+          ?? userData.find((user) => user.role === "Admin")
           ?? null;
         setCurrentAnalyst(analyst);
         setError(null);
@@ -88,7 +94,7 @@ export default function SOCIncidentsScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filterOpts = ["Tous", "Ouvert", "En cours", "Résolu", "Clôturé"];
+  const filterOpts = ["Tous", "Ouvert", "En cours", "Resolu", "Cloture"];
   const sorted = [...incidents].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, WARNING: 2, INFO: 3 };
     return (order[a.sev as keyof typeof order] ?? 4) - (order[b.sev as keyof typeof order] ?? 4);
@@ -155,7 +161,7 @@ export default function SOCIncidentsScreen() {
   };
 
   const closeResolved = () => {
-    void persistStatus("Résolu");
+    void persistStatus("Resolu");
   };
 
   const addAction = async () => {
@@ -283,10 +289,10 @@ export default function SOCIncidentsScreen() {
                     <UserCheck className="w-3.5 h-3.5" /> Prendre en charge
                   </button>
                 )}
-                {selectedStatus !== "Résolu" && selectedStatus !== "Clôturé" && (
+                {selectedStatus !== "Resolu" && selectedStatus !== "Cloture" && (
                   <button onClick={closeResolved} disabled={savingStatus}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono bg-emerald-700/80 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-lg transition-colors">
-                    <Check className="w-3.5 h-3.5" /> Clôturer (Résolu)
+                    <Check className="w-3.5 h-3.5" /> Cloturer (Resolu)
                   </button>
                 )}
               </div>

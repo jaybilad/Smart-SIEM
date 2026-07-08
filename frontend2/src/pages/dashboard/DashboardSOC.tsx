@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logoImage from '../../assets/logo.png';
 import {
@@ -6,6 +6,7 @@ import {
   Bell, RefreshCw, Activity, Lock, LogOut,
 } from "lucide-react";
 import { clearSession, getStoredUser } from "../../api/auth";
+import { socApi } from "../../api/soc";
 import SOCDashboardScreen from "../../components/soc-screens/SOCDashboardScreen";
 import SOCIncidentsScreen from "../../components/soc-screens/SOCIncidentScreen";
 import SOCSearchScreen from "../../components/soc-screens/SOCSearchScreen";
@@ -22,6 +23,7 @@ const SCREEN_META: Record<Screen, { title: string; sub: string }> = {
 
 export default function SOCDashboard() {
   const [screen, setScreen] = useState<Screen>("dashboard");
+  const [shellStats, setShellStats] = useState({ active: 0, critical: 0, ingestion: 0 });
   const { title, sub } = SCREEN_META[screen];
   const navigate = useNavigate();
   const user = getStoredUser();
@@ -36,6 +38,18 @@ export default function SOCDashboard() {
     clearSession();
     navigate("/", { replace: true });
   };
+
+  useEffect(() => {
+    socApi.dashboard()
+      .then((data) => {
+        setShellStats({
+          active: data.stats.active_incidents,
+          critical: data.stats.critical_incidents,
+          ingestion: data.stats.ingestion_rate,
+        });
+      })
+      .catch(() => setShellStats({ active: 0, critical: 0, ingestion: 0 }));
+  }, []);
 
   const NAV = [
     { id: "dashboard" as Screen, label: "Vue d'ensemble",               icon: LayoutDashboard },
@@ -94,7 +108,7 @@ export default function SOCDashboard() {
                 <span className="text-[12px] font-medium">{label}</span>
                 {id === "incidents" && (
                   <span className="ml-auto text-[9px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 rounded">
-                    5
+                    {shellStats.active}
                   </span>
                 )}
               </button>
@@ -118,7 +132,7 @@ export default function SOCDashboard() {
           </div>
           <div className="flex items-center gap-2 text-[10px] font-mono text-slate-700">
             <Activity className="w-3 h-3" />
-            495 logs/s — Filiale EU
+            {shellStats.ingestion} logs/s - Elasticsearch
           </div>
         </div>
 
@@ -140,14 +154,14 @@ export default function SOCDashboard() {
             <p className="text-[10px] text-slate-700 font-mono truncate">{sub}</p>
           </div>
           <div className="flex items-center gap-3 shrink-0 ml-4">
-            <span className="text-[10px] font-mono text-slate-600 hidden xl:block">22 juin 2026 — 14:59:47 UTC</span>
+            <span className="text-[10px] font-mono text-slate-600 hidden xl:block">PostgreSQL local + Elasticsearch Docker</span>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg text-[10px] font-mono text-orange-400">
               <AlertTriangle className="w-3 h-3" />
-              1 CRITIQUE EU
+              {shellStats.critical} CRITIQUE
             </div>
             <button className="relative p-1.5 text-slate-400 hover:text-white transition-colors">
               <Bell className="w-4 h-4" />
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full text-[8px] flex items-center justify-center text-white font-bold">5</span>
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full text-[8px] flex items-center justify-center text-white font-bold">{shellStats.active}</span>
             </button>
             <button className="p-1.5 text-slate-600 hover:text-slate-400 transition-colors"><RefreshCw className="w-3.5 h-3.5" /></button>
           </div>

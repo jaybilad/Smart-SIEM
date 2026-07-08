@@ -52,6 +52,8 @@ export type IncidentRow = {
   time: string;
   created_at?: string;
   assignee: string | null;
+  machine?: string;
+  ueba?: number;
 };
 
 export type CreateIncidentPayload = {

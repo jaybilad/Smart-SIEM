@@ -121,7 +121,7 @@ export default function LecteurDashboardScreen() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-amber-500/8 border border-amber-500/20 rounded-xl px-3 py-2">
             <Database className="w-3 h-3 text-amber-400/80" />
-            <span className="text-[11px] font-mono text-amber-300/80">Source: <strong>PostgreSQL local</strong></span>
+            <span className="text-[11px] font-mono text-amber-300/80">Sources: <strong>PostgreSQL + Elasticsearch</strong></span>
           </div>
           <ReadOnlyTag />
         </div>
@@ -169,7 +169,7 @@ export default function LecteurDashboardScreen() {
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2 bg-card border border-border rounded-xl p-5">
               <p className="text-sm font-medium text-foreground mb-1">Volume de logs recus par heure - 24h</p>
-              <p className="text-[10px] text-muted-foreground font-mono mb-3">Donnees PostgreSQL - Lecture seule</p>
+              <p className="text-[10px] text-muted-foreground font-mono mb-3">Donnees Elasticsearch - Lecture seule</p>
               <ResponsiveContainer width="100%" height={178}>
                 <AreaChart data={data.hourly} margin={{ left: -12, right: 4, top: 4, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1a2540" />
@@ -259,20 +259,20 @@ export default function LecteurDashboardScreen() {
           <p className="text-sm font-semibold text-foreground">Generation de rapports</p>
           <span className="text-[10px] font-mono text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded ml-1">Lecture seule</span>
         </div>
-        <p className="text-[11px] text-muted-foreground font-mono mb-4">Les exports utilisent exclusivement les donnees actuellement chargees depuis PostgreSQL.</p>
+        <p className="text-[11px] text-muted-foreground font-mono mb-4">Les exports utilisent les donnees actuellement chargees depuis PostgreSQL et Elasticsearch.</p>
         <div className="grid grid-cols-2 gap-3">
           <button onClick={() => handleExport("pdf")} disabled={!!exportState} className="flex items-center gap-3 p-4 bg-red-500/8 border border-red-500/20 hover:border-red-500/40 rounded-xl transition-all disabled:opacity-60 disabled:cursor-wait text-left">
             <FileText className="w-5 h-5 text-red-400" />
             <div>
               <p className="text-sm font-medium text-foreground">Rapport PDF Periodique</p>
-              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{exportState === "pdf" ? "Preparation..." : "Donnees PostgreSQL chargees"}</p>
+              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{exportState === "pdf" ? "Preparation..." : "Donnees API chargees"}</p>
             </div>
           </button>
           <button onClick={() => handleExport("csv")} disabled={!!exportState} className="flex items-center gap-3 p-4 bg-emerald-500/8 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl transition-all disabled:opacity-60 disabled:cursor-wait text-left">
             <Download className="w-5 h-5 text-emerald-400" />
             <div>
               <p className="text-sm font-medium text-foreground">Exporter CSV / Excel</p>
-              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{exportState === "csv" ? "Preparation..." : "Donnees PostgreSQL chargees"}</p>
+              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{exportState === "csv" ? "Preparation..." : "Donnees API chargees"}</p>
             </div>
           </button>
         </div>

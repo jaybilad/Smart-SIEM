@@ -80,7 +80,7 @@ export default function LecteurSearchScreen() {
       <div className="bg-card border border-[#1a3a5c] rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 border-b border-border/50 pb-3">
           <Terminal className="w-4 h-4 text-cyan-500 shrink-0" />
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Recherche multi-criteres - Consultation de l'historique PostgreSQL</span>
+          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Recherche multi-criteres - Consultation des logs Elasticsearch</span>
           <ReadOnlyTag />
         </div>
         <div className="grid grid-cols-5 gap-3">
@@ -140,7 +140,7 @@ export default function LecteurSearchScreen() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
           <div className="flex items-center gap-2 text-red-300 font-mono text-sm">
-            <AlertTriangle className="w-4 h-4" /> Impossible de charger les logs depuis PostgreSQL.
+            <AlertTriangle className="w-4 h-4" /> Impossible de charger les logs depuis Elasticsearch.
           </div>
           <p className="text-xs text-red-200/70 font-mono mt-2">{error}</p>
           <button onClick={load} className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-500/30 text-xs font-mono text-red-200 hover:bg-red-500/10">
@@ -187,7 +187,7 @@ export default function LecteurSearchScreen() {
             )}
             {!loading && !error && results.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-muted-foreground">
-                Aucun evenement retourne par PostgreSQL
+                Aucun evenement retourne par Elasticsearch
               </div>
             )}
           </div>
@@ -246,7 +246,7 @@ export default function LecteurSearchScreen() {
               {!loading && !error && results.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-3 py-8 text-center text-xs font-mono text-muted-foreground">
-                    Aucun log retourne par PostgreSQL pour ces criteres.
+                    Aucun log retourne par Elasticsearch pour ces criteres.
                   </td>
                 </tr>
               )}
@@ -289,7 +289,7 @@ export default function LecteurSearchScreen() {
             </pre>
             <div className="flex items-center justify-between mt-4">
               <p className="text-[10px] font-mono text-slate-600 flex items-center gap-1.5">
-                <Eye className="w-2.5 h-2.5" /> Consultation lecture seule des donnees PostgreSQL.
+                <Eye className="w-2.5 h-2.5" /> Consultation lecture seule des logs Elasticsearch.
               </p>
               <button onClick={() => setInspectEvent(null)} className="px-4 py-2 text-xs font-mono border border-border rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                 Fermer

@@ -60,6 +60,7 @@ def _fmt_iso(ts) -> str:
 
 
 def _map_incident(row: dict) -> dict:
+    target_type = row.get("target_type")
     return {
         "id": _inc_id(row["id"]),
         "uuid": str(row["id"]),
@@ -73,6 +74,8 @@ def _map_incident(row: dict) -> dict:
         "time": _fmt_time(row.get("created_at")),
         "created_at": _fmt_iso(row.get("created_at")),
         "assignee": row.get("assignee"),
+        "machine": row.get("target") if target_type == "HOST" else "-",
+        "ueba": row.get("global_risk_score") or 0,
     }
 
 
@@ -123,14 +126,16 @@ def _incident_select(where: str = "", order_limit: str = "") -> str:
         SELECT i.*,
                u.username AS assignee,
                cr.rule_name,
-               mt.name AS target
+               mt.name AS target,
+               mt.target_type,
+               mt.global_risk_score
         FROM incidents i
         LEFT JOIN soc_users u ON u.id = i.assigned_to
         LEFT JOIN alerts a ON a.incident_id = i.id
         LEFT JOIN correlation_rules cr ON cr.id = a.rule_id
         LEFT JOIN monitored_targets mt ON mt.id = a.target_id
         {where}
-        GROUP BY i.id, u.username, cr.rule_name, mt.name
+        GROUP BY i.id, u.username, cr.rule_name, mt.name, mt.target_type, mt.global_risk_score
         {order_limit}
     """
 
