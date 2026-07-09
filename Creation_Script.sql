@@ -77,7 +77,8 @@ CREATE TABLE correlation_rules (
     attack_type attack_type_enum NOT NULL,
     severity_enum severity_enum NOT NULL,
     rule_condition text NOT NULL, -- Description textuelle/JSON de la logique
-    playbook_id uuid REFERENCES playbooks(id) ON DELETE SET NULL
+    playbook_id uuid REFERENCES playbooks(id) ON DELETE SET NULL,
+    is_active boolean NOT NULL DEFAULT true,
 );
 
 -- =====================================================================
@@ -93,6 +94,7 @@ CREATE TABLE incidents (
     assigned_to uuid REFERENCES soc_users(id) ON DELETE SET NULL,
     created_at timestamp NOT NULL DEFAULT now(),
     updated_at timestamp DEFAULT now(),
+    is_deleted boolean NOT NULL DEFAULT false,
     closed_at timestamp
 );
 

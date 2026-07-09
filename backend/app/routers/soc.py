@@ -12,6 +12,8 @@ from app.routers.admin import dashboard as admin_dashboard
 from app.routers.admin import incidents as admin_incidents
 from app.routers.admin import playbooks as admin_playbooks
 from app.routers.admin import search_logs as admin_search_logs
+from app.routers.admin import alerts as admin_alerts
+from app.routers.admin import assign_alert_incident as admin_assign_alert_incident
 from app.routers.admin import update_incident_status as admin_update_incident_status
 from app.routers.admin import users as admin_users
 from app.services.audit import set_audit_action
@@ -74,6 +76,7 @@ def _get_incident(cur, incident_id: str) -> dict:
         LEFT JOIN alerts a ON a.incident_id = i.id
         LEFT JOIN correlation_rules cr ON cr.id = a.rule_id
         WHERE {clause}
+          AND i.is_deleted = false
         LIMIT 1
         """,
         params,
@@ -96,7 +99,7 @@ def _get_authorized_analyst(cur, analyst_id: UUID) -> dict:
     user = cur.fetchone()
     if not user:
         raise HTTPException(404, "Utilisateur introuvable")
-    if user["role"] not in {"Analyste", "Admin"}:
+    if user["role"] != "Analyste":
         raise HTTPException(403, "Utilisateur non autorise a traiter un incident")
     return user
 
@@ -158,6 +161,16 @@ def search_logs(q: str = Query(""), range: str = Query("24h"), limit: int = Quer
     return admin_search_logs(q=q, range=range, limit=limit)
 
 
+@router.get("/alerts")
+def alerts(status: str | None = Query(None), incident_id: str | None = Query(None)):
+    return admin_alerts(status=status, incident_id=incident_id)
+
+
+@router.patch("/alerts/{alert_id}/incident")
+def assign_alert_incident(alert_id: str, request: Request, incident_id: str = Query(...)):
+    return admin_assign_alert_incident(alert_id=alert_id, request=request, incident_id=incident_id)
+
+
 @router.get("/playbooks")
 def playbooks():
     return admin_playbooks()
@@ -184,6 +197,7 @@ def take_incident(incident_id: str, payload: TakeIncidentPayload, request: Reque
                 updated_at = now(),
                 closed_at = NULL
             WHERE {clause}
+              AND i.is_deleted = false
             RETURNING i.*
             """,
             [payload.analyst_id, *params],

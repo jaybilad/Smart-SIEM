@@ -15,7 +15,7 @@ import SOCSOARScreen from "../../components/soc-screens/SOCSOARScreen";
 type Screen = "dashboard" | "incidents" | "search" | "soar";
 
 const SCREEN_META: Record<Screen, { title: string; sub: string }> = {
-  dashboard: { title: "Vue d'ensemble",              sub: "Tableaux de bord temps réel — Filiale Europe" },
+  dashboard: { title: "Vue d'ensemble",              sub: "Tableaux de bord temps réel" },
   incidents: { title: "Gestion des Incidents",       sub: "File d'alertes & investigation détaillée" },
   search:    { title: "Moteur de Recherche & Logs",  sub: "L'espace détective — Investigation forensique" },
   soar:      { title: "Catalogue SOAR",              sub: "Playbooks de réponse disponibles — Exécution auditée" },

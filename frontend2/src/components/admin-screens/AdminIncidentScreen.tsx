@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Plus, Filter, Eye, Edit2, Trash2, Loader2, X, Save } from "lucide-react";
+import { Plus, Filter, Eye, Trash2, Loader2, X, Save } from "lucide-react";
 import { adminApi, type CreateIncidentPayload, type IncidentRow, type RuleRow, type UserRow } from "../../api/admin";
 
 const SEVERITIES = ["INFO", "WARNING", "HIGH", "CRITICAL"];
@@ -79,6 +79,10 @@ export default function IncidentsScreen() {
     () => [...new Set(rules.map((rule) => rule.attack_type).filter(Boolean))],
     [rules],
   );
+  const analysts = useMemo(
+    () => users.filter((user) => user.role === "Analyste"),
+    [users],
+  );
 
   const loadIncidents = (nextFilter = filter) => {
     setLoading(true);
@@ -101,6 +105,9 @@ export default function IncidentsScreen() {
         setForm((current) => ({
           ...current,
           attack_type: current.attack_type || firstAttackType,
+          assigned_to: loadedUsers.some((user) => user.id === current.assigned_to && user.role === "Analyste")
+            ? current.assigned_to
+            : "",
         }));
       })
       .catch((e) => setModalError(e instanceof Error ? e.message : "Erreur de chargement"))
@@ -128,6 +135,15 @@ export default function IncidentsScreen() {
       attack_type: attackTypes[0] ?? "",
     });
   };
+
+  const deleteIncident = (id: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cet incident ?")) return;
+    adminApi.updateIncidentIsDeleted(id)
+      .then(() => {
+        setIncidents((current) => current.filter((inc) => inc.id !== id));
+      })
+      .catch((e) => alert(e instanceof Error ? e.message : "Erreur API"));
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -234,8 +250,7 @@ export default function IncidentsScreen() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
                         <button className="text-blue-400 hover:text-blue-300 transition-colors" title="Voir détail"><Eye className="w-3.5 h-3.5" /></button>
-                        <button className="text-slate-500 hover:text-foreground transition-colors" title="Modifier"><Edit2 className="w-3.5 h-3.5" /></button>
-                        <button className="text-red-500/70 hover:text-red-400 transition-colors" title="Supprimer"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button className="text-red-500/70 hover:text-red-400 transition-colors" title="Supprimer" onClick={() => deleteIncident(inc.id)}><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -337,10 +352,13 @@ export default function IncidentsScreen() {
                     value={form.assigned_to}
                     onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}>
                     <option value="">Non assigné</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>{user.username} - {user.role}</option>
+                    {analysts.map((user) => (
+                      <option key={user.id} value={user.id}>{user.username}</option>
                     ))}
                   </select>
+                  {!analysts.length && (
+                    <p className="mt-2 text-[11px] font-mono text-yellow-400">Aucun analyste disponible</p>
+                  )}
                 </div>
               </div>
             )}

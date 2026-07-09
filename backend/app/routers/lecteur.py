@@ -29,6 +29,7 @@ def _sla_rate(cur, severity: str, hours: int) -> int:
               AND closed_at - created_at <= make_interval(hours => %s)
           ) AS within_sla
         FROM incidents
+        WHERE is_deleted = false
         """,
         [severity, severity, hours],
     )
@@ -43,7 +44,7 @@ def lecteur_dashboard():
 
         total_logs = _safe_es_count({"query": _es_range(RANGE_SECONDS["24h"])})
 
-        cur.execute("SELECT COUNT(*) FILTER (WHERE status IN ('OPEN','IN_PROGRESS')) AS cnt FROM incidents")
+        cur.execute("SELECT COUNT(*) FILTER (WHERE status IN ('OPEN','IN_PROGRESS')) AS cnt FROM incidents WHERE is_deleted = false")
         active_incidents = cur.fetchone()["cnt"]
 
         suspect_ips = _safe_es_count(
@@ -90,10 +91,10 @@ def lecteur_dashboard():
         )
         top_alerts = [dict(type=row["type"], count=row["count"]) for row in cur.fetchall()]
 
-        cur.execute("SELECT COUNT(*) FILTER (WHERE created_at >= date_trunc('month', now())) AS cnt FROM incidents")
+        cur.execute("SELECT COUNT(*) FILTER (WHERE created_at >= date_trunc('month', now())) AS cnt FROM incidents WHERE is_deleted = false")
         month_total = cur.fetchone()["cnt"]
 
-        cur.execute("SELECT COUNT(*) FILTER (WHERE closed_at >= date_trunc('month', now())) AS cnt FROM incidents")
+        cur.execute("SELECT COUNT(*) FILTER (WHERE closed_at >= date_trunc('month', now())) AS cnt FROM incidents WHERE is_deleted = false")
         month_resolved = cur.fetchone()["cnt"]
 
         resolution_rate = _pct(month_resolved, month_total)
