@@ -62,7 +62,7 @@ export default function SOCDashboardScreen() {
     {
       label: "Incidents actifs",
       value: loading ? "..." : dashboardData ? String(dashboardData.stats.active_incidents) : "0",
-      sub: "Filiale Europe",
+      sub: "PostgreSQL",
       color: "text-orange-400",
       bg: "bg-orange-500/10 border-orange-500/20",
       icon: AlertTriangle,
@@ -221,7 +221,7 @@ export default function SOCDashboardScreen() {
                     <span className="text-[10px] font-mono text-slate-600 w-3">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-mono text-orange-300 truncate">{ip.ip}</p>
-                      <p className="text-[9px] font-mono text-muted-foreground">PostgreSQL local</p>
+                      <p className="text-[9px] font-mono text-muted-foreground">Elasticsearch logs</p>
                     </div>
                     <div className="text-right">
                       <SevBadge s={ip.sev} />
@@ -241,7 +241,7 @@ export default function SOCDashboardScreen() {
               <Radio className="w-5 h-5 text-red-400 animate-pulse" />
               <p className="text-base font-bold text-red-400">MODE GESTION DE CRISE ACTIVÉ</p>
             </div>
-            <p className="text-sm text-muted-foreground">Vue synthétique alimentée par PostgreSQL local — Filiale Europe</p>
+            <p className="text-sm text-muted-foreground">Vue synthétique alimentée par PostgreSQL local et Elasticsearch Docker</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

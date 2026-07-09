@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
@@ -41,8 +44,8 @@ def login(payload: LoginPayload, request: Request):
                    role,
                    scope,
                    is_active,
-                   password_plain
-            FROM users
+                   password_hash
+            FROM soc_users
             WHERE lower(username) = %s
             LIMIT 1
             """,
@@ -52,11 +55,9 @@ def login(payload: LoginPayload, request: Request):
         if not user or not user["is_active"]:
             raise HTTPException(401, "Identifiants invalides")
 
-        if user.get("password_plain") is None or payload.password != user["password_plain"]:
+        password_hash = hashlib.sha256(payload.password.encode("utf-8")).hexdigest()
+        if not hmac_compare(password_hash, user["password_hash"]):
             raise HTTPException(401, "Identifiants invalides")
-
-        cur.execute("UPDATE users SET last_login_at = now(), updated_at = now() WHERE id = %s", [user["id"]])
-        conn.commit()
 
     user_payload = {
         "id": str(user["id"]),
@@ -76,6 +77,10 @@ def login(payload: LoginPayload, request: Request):
         "user": user_payload,
         "redirect_to": _dashboard_path(user["role"]),
     }
+
+
+def hmac_compare(left: str, right: str) -> bool:
+    return hmac.compare_digest(left, right)
 
 
 @router.get("/me")

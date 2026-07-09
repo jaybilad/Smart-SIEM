@@ -134,7 +134,7 @@ export default function LecteurDashboard() {
         <div className="px-3 pb-2">
           <div className="bg-slate-500/6 border border-slate-700/30 rounded-xl px-3 py-2">
             <p className="text-[9px] font-mono text-slate-600 uppercase tracking-wider mb-0.5">Périmètre restreint</p>
-            <p className="text-[11px] font-mono text-amber-300/70 font-semibold">Audit &amp; Conformité</p>
+            <p className="text-[11px] font-mono text-amber-300/70 font-semibold">{user?.scope ?? "Audit & Conformite"}</p>
           </div>
         </div>
 
@@ -171,7 +171,7 @@ export default function LecteurDashboard() {
             <p className="text-[10px] text-slate-500 font-mono truncate">{sub}</p>
           </div>
           <div className="flex items-center gap-3 shrink-0 ml-4">
-            <span className="text-[10px] font-mono text-slate-600 hidden xl:block">22 juin 2026 — 14:59 UTC</span>
+            <span className="text-[10px] font-mono text-slate-600 hidden xl:block">PostgreSQL local + Elasticsearch Docker</span>
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] font-mono text-amber-400">
               <Lock className="w-3 h-3" />
               LECTURE SEULE

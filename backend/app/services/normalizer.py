@@ -2,7 +2,7 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class NormalizedLog(BaseModel):
@@ -14,6 +14,17 @@ class NormalizedLog(BaseModel):
     raw_message: str
     source: Optional[str]
     metadata: Dict[str, Any] = {}
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def _coerce_timestamp(cls, value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, str):
+            return value
+        return str(value)
 
 
 SYSLOG_PATTERN = re.compile(

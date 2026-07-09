@@ -131,6 +131,22 @@ export type SocLogSearchData = {
   results: SocLogRow[];
 };
 
+export type SocAlertRow = {
+  id: string;
+  uuid: string;
+  title: string;
+  attackType: string;
+  sev: "CRITICAL" | "HIGH" | "WARNING" | "INFO";
+  confidence: number;
+  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+  createdAt: string;
+  sourceIp: string;
+  user: string;
+  target: string;
+  incidentId: string | null;
+  incidentUuid: string | null;
+};
+
 export type SocPlaybookRow = {
   id: string;
   name: string;
@@ -157,5 +173,9 @@ export const socApi = {
     postJson<SocAddActionResponse>(`/incidents/${uuid}/actions`, payload),
   searchLogs: (q: string, range: string) =>
     fetchJson<SocLogSearchData>("/logs/search", { q, range }),
+  alerts: (params?: { status?: string; incident_id?: string }) =>
+    fetchJson<SocAlertRow[]>("/alerts", Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v)) as Record<string, string>),
+  assignAlertIncident: (alertId: string, incidentId: string) =>
+    fetchJson<SocAlertRow>(`/alerts/${alertId}/incident`, { incident_id: incidentId }, { method: "PATCH" }),
   playbooks: () => fetchJson<SocPlaybookRow[]>("/playbooks"),
 };

@@ -1,8 +1,26 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Check, Send, UserCheck } from "lucide-react";
-import { socApi, type SocIncidentActionRow, type SocIncidentRow, type SocUserRow } from "../../api/soc";
+import { AlertTriangle, Check, Send, ShieldAlert, UserCheck } from "lucide-react";
+import { socApi, type SocAlertRow, type SocIncidentActionRow, type SocIncidentRow, type SocUserRow } from "../../api/soc";
 
 const INIT_STATUSES: Record<string, string> = {};
+
+// ============================================================
+// DONNÉES STATIQUES — alertes ayant déclenché chaque incident
+// (pas d'endpoint backend pour ça pour l'instant, mock en attendant)
+// ============================================================
+
+/*
+  "INC-A1B2C3D4": [
+    { id: "ALT-7F21", title: "Détection Force Brute — 5 échecs en 60s", sev: "HIGH", confidence: 85, created_at: "2026-07-02T11:52:55" },
+  ],
+  "INC-E5F6G7H8": [
+    { id: "ALT-9C44", title: "Volume anormal de FILE_DOWNLOAD", sev: "CRITICAL", confidence: 92, created_at: "2026-07-02T09:16:20" },
+    { id: "ALT-9C45", title: "Transfert sortant vers IP externe non référencée", sev: "CRITICAL", confidence: 88, created_at: "2026-07-02T09:17:05" },
+  ],
+  "INC-M3N4O5P6": [
+    { id: "ALT-3B10", title: "Connexions internes vers 3 hôtes distincts en moins de 2 minutes", sev: "HIGH", confidence: 78, created_at: "2026-07-02T08:40:40" },
+  ],
+*/
 
 function SevBadge({ s }: { s: string }) {
   const colors: Record<string, string> = {
@@ -24,6 +42,11 @@ function StatusChip({ s }: { s: string }) {
     Ouvert: "bg-blue-500/15 text-blue-400 border border-blue-500/25",
     Nouvelle: "bg-blue-500/15 text-blue-400 border border-blue-500/25",
     "En cours": "bg-orange-500/15 text-orange-400 border border-orange-500/25",
+    Resolu: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
+    Cloture: "bg-slate-500/15 text-slate-400 border border-slate-500/25",
+    Succes: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
+    Echec: "bg-red-500/15 text-red-400 border border-red-500/25",
+    "En attente": "bg-yellow-500/15 text-yellow-400 border border-yellow-500/25",
     "Résolu": "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
     "Clôturé": "bg-slate-500/15 text-slate-400 border border-slate-500/25",
     "Faux positif": "bg-slate-500/15 text-slate-400 border border-slate-500/25",
@@ -35,12 +58,12 @@ function StatusChip({ s }: { s: string }) {
 
 function storedUserHint() {
   const raw = localStorage.getItem("user");
-  if (!raw) return { username: "a.dupont" };
+  if (!raw) return { username: "edgar.stiles" };
   try {
     const parsed = JSON.parse(raw) as { id?: string; username?: string; name?: string };
-    return { id: parsed.id, username: parsed.username ?? parsed.name ?? "a.dupont" };
+    return { id: parsed.id, username: parsed.username ?? parsed.name ?? "edgar.stiles" };
   } catch {
-    return { username: raw || "a.dupont" };
+    return { username: raw || "edgar.stiles" };
   }
 }
 
@@ -56,12 +79,14 @@ export default function SOCIncidentsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState("Tous");
   const [actions, setActions] = useState<SocIncidentActionRow[]>([]);
+  const [causingAlerts, setCausingAlerts] = useState<SocAlertRow[]>([]);
   const [actionNote, setActionNote] = useState("");
   const [executionStatus, setExecutionStatus] = useState("Succès");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingAction, setSavingAction] = useState(false);
+  const [alertsLoading, setAlertsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,7 +100,8 @@ export default function SOCIncidentsScreen() {
         const hint = storedUserHint();
         const analyst = userData.find((user) => user.id === hint.id)
           ?? userData.find((user) => user.username === hint.username)
-          ?? userData.find((user) => user.username === "a.dupont")
+          ?? userData.find((user) => user.role === "Analyste")
+          ?? userData.find((user) => user.role === "Admin")
           ?? null;
         setCurrentAnalyst(analyst);
         setError(null);
@@ -88,7 +114,7 @@ export default function SOCIncidentsScreen() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filterOpts = ["Tous", "Ouvert", "En cours", "Résolu", "Clôturé"];
+  const filterOpts = ["Tous", "Ouvert", "En cours", "Resolu", "Cloture"];
   const sorted = [...incidents].sort((a, b) => {
     const order = { CRITICAL: 0, HIGH: 1, WARNING: 2, INFO: 3 };
     return (order[a.sev as keyof typeof order] ?? 4) - (order[b.sev as keyof typeof order] ?? 4);
@@ -99,23 +125,31 @@ export default function SOCIncidentsScreen() {
   const selectedDate = selected?.created_at ? selected.created_at.split("T")[0] : "-";
   const selectedUeba = selected?.ueba ?? 0;
   const canAddActions = selectedStatus === "En cours";
+  const selectedCausingAlerts = selected ? causingAlerts : [];
 
   useEffect(() => {
     if (!selected?.uuid) {
       setActions([]);
+      setCausingAlerts([]);
       return;
     }
     setActionLoading(true);
-    socApi.incidentActions(selected.uuid)
-      .then((data) => {
-        setActions(data);
+    setAlertsLoading(true);
+    Promise.all([socApi.incidentActions(selected.uuid), socApi.alerts({ incident_id: selected.uuid })])
+      .then(([actionData, alertData]) => {
+        setActions(actionData);
+        setCausingAlerts(alertData);
         setError(null);
       })
       .catch((err: Error) => {
         setActions([]);
+        setCausingAlerts([]);
         setError(err.message);
       })
-      .finally(() => setActionLoading(false));
+      .finally(() => {
+        setActionLoading(false);
+        setAlertsLoading(false);
+      });
   }, [selected?.uuid]);
 
   const persistStatus = async (status: string) => {
@@ -155,7 +189,7 @@ export default function SOCIncidentsScreen() {
   };
 
   const closeResolved = () => {
-    void persistStatus("Résolu");
+    void persistStatus("Resolu");
   };
 
   const addAction = async () => {
@@ -181,6 +215,7 @@ export default function SOCIncidentsScreen() {
 
   return (
     <div className="flex h-full overflow-hidden pb-6">
+      {/* LEFT PANEL */}
       <div className="w-85 shrink-0 flex flex-col border-r border-border overflow-hidden">
         <div className="px-4 py-3 border-b border-border bg-secondary/10 shrink-0">
           <div className="flex items-center gap-1.5">
@@ -195,7 +230,7 @@ export default function SOCIncidentsScreen() {
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="p-6 text-center text-muted-foreground font-mono text-sm">Chargement des incidents...</div>
+            <div className="p-6 text-center text-muted-foreground font-mono text-sm">Chargement des incidents…</div>
           ) : displayed.length === 0 ? (
             <div className="p-6 text-center text-muted-foreground font-mono text-sm">Aucun incident disponible.</div>
           ) : displayed.map((inc) => {
@@ -227,9 +262,11 @@ export default function SOCIncidentsScreen() {
         </div>
       </div>
 
+      {/* RIGHT PANEL */}
       <div className="flex-1 overflow-y-auto">
         {selected ? (
           <div className="p-5 space-y-4">
+            {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -248,6 +285,7 @@ export default function SOCIncidentsScreen() {
               </div>
             )}
 
+            {/* Metadata */}
             <div className="bg-card border border-border rounded-xl p-4 grid grid-cols-2 gap-y-2.5 gap-x-4 text-xs">
               {[
                 ["Règle déclenchée", selected.rule],
@@ -274,6 +312,7 @@ export default function SOCIncidentsScreen() {
               </div>
             </div>
 
+            {/* Status actions */}
             <div className="bg-card border border-border rounded-xl p-4">
               <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Actions de statut</p>
               <div className="flex flex-wrap gap-2">
@@ -283,7 +322,7 @@ export default function SOCIncidentsScreen() {
                     <UserCheck className="w-3.5 h-3.5" /> Prendre en charge
                   </button>
                 )}
-                {selectedStatus !== "Résolu" && selectedStatus !== "Clôturé" && (
+                {selectedStatus !== "Resolu" && selectedStatus !== "Cloture" && (
                   <button onClick={closeResolved} disabled={savingStatus}
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono bg-emerald-700/80 hover:bg-emerald-600 disabled:opacity-60 text-white rounded-lg transition-colors">
                     <Check className="w-3.5 h-3.5" /> Clôturer (Résolu)
@@ -295,12 +334,13 @@ export default function SOCIncidentsScreen() {
               </p>
             </div>
 
+            {/* Ajout d'une action réalisée (API) */}
             {canAddActions && (
               <div className="bg-card border border-border rounded-xl p-4">
                 <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Ajouter une action réalisée</p>
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_150px_auto] gap-2 items-start">
                   <textarea
-                    rows={3}
+                    rows={2}
                     className="bg-secondary/40 border border-border rounded-lg px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-blue-500/50 transition-colors resize-none placeholder:text-slate-600"
                     placeholder="Décrire l'action réalisée..."
                     value={actionNote}
@@ -316,35 +356,65 @@ export default function SOCIncidentsScreen() {
                     <option>Échec</option>
                   </select>
                   <button onClick={addAction} disabled={savingAction || !actionNote.trim() || !currentAnalyst}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white rounded-lg transition-colors flex items-center justify-center gap-1.5 text-xs font-mono">
-                    <Send className="w-3.5 h-3.5" /> Enregistrer
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white rounded-lg transition-colors flex items-center justify-center shrink-0">
+                    <Send className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
             )}
 
+            {/* Journal des actions réalisées (API) — style repris du "Journal d'investigation" */}
             <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Actions réalisées</p>
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3">Journal d'investigation</p>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {actionLoading ? (
                   <p className="text-xs text-slate-600 font-mono italic">Chargement de l'historique...</p>
                 ) : actions.length === 0 ? (
                   <p className="text-xs text-slate-600 font-mono italic">Aucune action enregistrée pour cet incident.</p>
                 ) : actions.map((action) => (
-                  <div key={action.id} className="relative bg-secondary/40 rounded-lg p-3 border border-border/50">
+                  <div key={action.id} className="bg-secondary/40 rounded-lg p-2.5 border border-border/50">
                     <div className="flex items-start justify-between gap-3 mb-1">
-                      <div>
-                        <p className="text-[10px] font-mono text-blue-300 font-bold">{action.action_name}</p>
-                        <p className="text-[9px] font-mono text-muted-foreground">
-                          {action.executed_by} · {formatActionTime(action.execution_time)}
-                        </p>
-                      </div>
+                      <p className="text-[9px] font-mono text-muted-foreground">
+                        {action.executed_by} — {formatActionTime(action.execution_time)} UTC
+                      </p>
                       <StatusChip s={action.execution_status} />
                     </div>
                     <p className="text-xs text-foreground/80">{action.action_note || "Aucune note renseignée."}</p>
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Alertes à l'origine de l'incident — données statiques */}
+            <div className="bg-card border border-border rounded-xl p-4">
+              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-orange-400" />
+                Alertes à l'origine de cet incident
+                <span className="text-slate-600">— {selectedCausingAlerts.length}</span>
+              </p>
+              {alertsLoading ? (
+                <p className="text-xs text-slate-600 font-mono italic">Chargement des alertes rattachees...</p>
+              ) : selectedCausingAlerts.length === 0 ? (
+                <p className="text-xs text-slate-600 font-mono italic">Aucune alerte rattachée à cet incident.</p>
+              ) : (
+                <div className="space-y-2">
+                  {selectedCausingAlerts.map((al) => (
+                    <div key={al.id} className="flex items-start justify-between gap-3 bg-secondary/40 rounded-lg p-2.5 border border-border/50">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-mono text-blue-400 font-bold shrink-0">{al.id}</span>
+                          <SevBadge s={al.sev} />
+                        </div>
+                        <p className="text-xs text-foreground/90 truncate">{al.title}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] font-mono text-muted-foreground">{al.createdAt.replace("T", " ").slice(0, 16)}</p>
+                        <p className="text-[10px] font-mono text-slate-500">Confiance {al.confidence}%</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : (

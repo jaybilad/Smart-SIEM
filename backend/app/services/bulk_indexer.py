@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from app.core.es_client import index_log
+
 _BUFFER: List[Dict[str, Any]] = []
 _INDEXED: List[Dict[str, Any]] = []
 _LOCK = asyncio.Lock()
@@ -17,11 +19,11 @@ async def _flush_locked():
         return
     to_send = _BUFFER
     _BUFFER = []
-    # simulate indexing by adding ingestion timestamp
     ts = datetime.now(timezone.utc).isoformat()
     for doc in to_send:
         doc.setdefault("ingested_at", ts)
-        _INDEXED.append(doc)
+        elastic_id = index_log(doc)
+        _INDEXED.append({**doc, "_id": elastic_id})
 
 
 async def _flusher_loop():

@@ -7,7 +7,7 @@ Usage :
   cd elasticsearch
   python import_seed.py --reset
 
-Variable d'environnement : ES_HOST (défaut http://localhost:9200)
+Variables d'environnement : ES_HOST, ES_USER, ES_PASSWORD
 """
 
 from elasticsearch import Elasticsearch, helpers
@@ -21,6 +21,8 @@ BASE_DIR = os.path.dirname(__file__)
 MAPPINGS_DIR = os.path.join(BASE_DIR, "mappings")
 SEED_DIR = os.path.join(BASE_DIR, "seed")
 ES_URL = os.getenv("ES_HOST", "http://localhost:9200")
+ES_USER = os.getenv("ES_USER", "elastic")
+ES_PASSWORD = os.getenv("ES_PASSWORD", "changeme")
 
 # Ordre de création (9 indices du MLD)
 INDICES = [
@@ -81,7 +83,7 @@ def main():
     parser.add_argument("--reset", action="store_true", help="Supprimer les indices avant import")
     args = parser.parse_args()
 
-    es = Elasticsearch([ES_URL], request_timeout=30)
+    es = Elasticsearch([ES_URL], basic_auth=(ES_USER, ES_PASSWORD), request_timeout=30)
     if not wait_for_es(es):
         print("Erreur : Elasticsearch inaccessible. Depuis la racine : docker compose up -d")
         sys.exit(1)

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.core.db import get_conn
+from app.routers.admin import RANGE_SECONDS, _es_range, _safe_es_count, _safe_es_search
 from app.routers.admin import incidents as admin_incidents
 from app.routers.admin import search_logs as admin_search_logs
 from app.routers.admin import ueba as admin_ueba
@@ -28,6 +29,7 @@ def _sla_rate(cur, severity: str, hours: int) -> int:
               AND closed_at - created_at <= make_interval(hours => %s)
           ) AS within_sla
         FROM incidents
+        WHERE is_deleted = false
         """,
         [severity, severity, hours],
     )
@@ -40,37 +42,43 @@ def lecteur_dashboard():
     with get_conn() as conn:
         cur = conn.cursor()
 
-        cur.execute('SELECT COUNT(*) AS cnt FROM logs WHERE "timestamp" >= now() - interval \'24 hours\'')
-        total_logs = cur.fetchone()["cnt"]
+        total_logs = _safe_es_count({"query": _es_range(RANGE_SECONDS["24h"])})
 
-        cur.execute("SELECT COUNT(*) FILTER (WHERE status IN ('OPEN','IN_PROGRESS')) AS cnt FROM incidents")
+        cur.execute("SELECT COUNT(*) FILTER (WHERE status IN ('OPEN','IN_PROGRESS')) AS cnt FROM incidents WHERE is_deleted = false")
         active_incidents = cur.fetchone()["cnt"]
 
-        cur.execute(
-            """
-            SELECT COUNT(DISTINCT source_ip) AS cnt
-            FROM logs
-            WHERE severity IN ('HIGH','CRITICAL')
-              AND "timestamp" >= now() - interval '24 hours'
-            """
+        suspect_ips = _safe_es_count(
+            {
+                "query": {
+                    "bool": {
+                        "must": [
+                            _es_range(RANGE_SECONDS["24h"]),
+                            {"terms": {"severity": ["HIGH", "CRITICAL", "high", "critical"]}},
+                        ]
+                    }
+                }
+            }
         )
-        suspect_ips = cur.fetchone()["cnt"]
 
-        cur.execute("SELECT COUNT(*) AS cnt FROM hosts")
+        cur.execute("SELECT COUNT(*) AS cnt FROM monitored_targets WHERE target_type = 'HOST'")
         assets = cur.fetchone()["cnt"]
 
-        cur.execute(
-            """
-            SELECT to_char(date_trunc('hour', "timestamp"), 'HH24"h"') AS h,
-                   COUNT(*) AS total,
-                   COUNT(*) FILTER (WHERE event_type IN ('AUTH_FAILED','AUTH_SUCCESS')) AS scope
-            FROM logs
-            WHERE "timestamp" >= now() - interval '24 hours'
-            GROUP BY date_trunc('hour', "timestamp")
-            ORDER BY date_trunc('hour', "timestamp")
-            """
+        es_hourly = _safe_es_search(
+            {
+                "size": 0,
+                "query": _es_range(RANGE_SECONDS["24h"]),
+                "aggs": {
+                    "hourly": {
+                        "date_histogram": {"field": "timestamp", "calendar_interval": "hour", "format": "HH'h'"},
+                        "aggs": {"auth": {"filter": {"terms": {"event_type": ["AUTH_FAILED", "AUTH_SUCCESS"]}}}},
+                    }
+                },
+            }
         )
-        hourly = [dict(h=row["h"], total=row["total"], scope=row["scope"]) for row in cur.fetchall()]
+        hourly = [
+            dict(h=b.get("key_as_string"), total=b["doc_count"], scope=b.get("auth", {}).get("doc_count", 0))
+            for b in es_hourly.get("aggregations", {}).get("hourly", {}).get("buckets", [])
+        ]
 
         cur.execute(
             """
@@ -83,24 +91,24 @@ def lecteur_dashboard():
         )
         top_alerts = [dict(type=row["type"], count=row["count"]) for row in cur.fetchall()]
 
-        cur.execute("SELECT COUNT(*) FILTER (WHERE created_at >= date_trunc('month', now())) AS cnt FROM incidents")
+        cur.execute("SELECT COUNT(*) FILTER (WHERE created_at >= date_trunc('month', now())) AS cnt FROM incidents WHERE is_deleted = false")
         month_total = cur.fetchone()["cnt"]
 
-        cur.execute("SELECT COUNT(*) FILTER (WHERE closed_at >= date_trunc('month', now())) AS cnt FROM incidents")
+        cur.execute("SELECT COUNT(*) FILTER (WHERE closed_at >= date_trunc('month', now())) AS cnt FROM incidents WHERE is_deleted = false")
         month_resolved = cur.fetchone()["cnt"]
 
         resolution_rate = _pct(month_resolved, month_total)
         p1_sla = _sla_rate(cur, "CRITICAL", 4)
         p2_sla = _sla_rate(cur, "HIGH", 24)
 
-        cur.execute("SELECT COUNT(*) AS cnt FROM hosts WHERE status = 'Actif'")
+        cur.execute("SELECT COUNT(*) AS cnt FROM monitored_targets WHERE target_type = 'HOST' AND status = 'Actif'")
         active_hosts = cur.fetchone()["cnt"]
 
-        cur.execute("SELECT COUNT(*) AS cnt FROM hosts")
+        cur.execute("SELECT COUNT(*) AS cnt FROM monitored_targets WHERE target_type = 'HOST'")
         total_hosts = cur.fetchone()["cnt"]
         coverage = _pct(active_hosts, total_hosts)
 
-        cur.execute("SELECT COUNT(*) AS cnt FROM anomalies WHERE detected_at >= date_trunc('month', now())")
+        cur.execute("SELECT COALESCE(SUM(anomalies_count), 0) AS cnt FROM monitored_targets")
         month_anomalies = cur.fetchone()["cnt"]
 
         compliance = [
@@ -110,17 +118,17 @@ def lecteur_dashboard():
             {"label": "Couverture SIEM des assets", "value": coverage, "target": 90, "unit": "%", "up": True},
         ]
 
-        cur.execute(
-            """
-            SELECT source_ip::text AS ip, COUNT(*) AS cnt, MAX(severity)::text AS sev
-            FROM logs
-            WHERE source_ip IS NOT NULL
-            GROUP BY source_ip
-            ORDER BY cnt DESC
-            LIMIT 5
-            """
+        es_top_ips = _safe_es_search(
+            {
+                "size": 0,
+                "query": {"exists": {"field": "source_ip"}},
+                "aggs": {"top_ips": {"terms": {"field": "source_ip", "size": 5}}},
+            }
         )
-        top_ips = [dict(ip=row["ip"], count=row["cnt"], sev=row["sev"] or "INFO") for row in cur.fetchall()]
+        top_ips = [
+            dict(ip=b["key"], count=b["doc_count"], sev="INFO")
+            for b in es_top_ips.get("aggregations", {}).get("top_ips", {}).get("buckets", [])
+        ]
 
     return {
         "kpis": {

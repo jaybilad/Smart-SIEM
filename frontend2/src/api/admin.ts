@@ -52,6 +52,8 @@ export type IncidentRow = {
   time: string;
   created_at?: string;
   assignee: string | null;
+  machine?: string;
+  ueba?: number;
 };
 
 export type CreateIncidentPayload = {
@@ -126,6 +128,27 @@ export type RuleRow = {
   attack_type: string;
 };
 
+export type CreateRulePayload = {
+  name: string;
+  sev: string;
+  threshold: number;
+  window: number;
+  desc: string;
+  playbook: string;
+  mitre_technique: string;
+};
+
+export type PlaybookRow = {
+  id: string;
+  name: string;
+  sev: string;
+  desc: string;
+  auto: boolean;
+  triggers: number;
+  lastRun: string;
+  rules: string[];
+};
+
 export type InfraData = {
   cluster: {
     status: string;
@@ -157,6 +180,11 @@ export const adminApi = {
   users: () => fetchJson<UserRow[]>("/users"),
   createUser: (payload: CreateUserPayload) =>
     postJson<UserRow>("/users", payload),
+  createRule: (payload: CreateRulePayload)=>
+    postJson <RuleRow>("/rules", payload),
+  updateIncidentIsDeleted: (id: string) =>
+    postJson<IncidentRow>(`/incidents/${id}/delete`, { is_deleted: true }),
   rules: () => fetchJson<RuleRow[]>("/rules"),
+  playbooks: () => fetchJson<PlaybookRow[]>("/playbooks"),
   infra: () => fetchJson<InfraData>("/infra"),
 };
