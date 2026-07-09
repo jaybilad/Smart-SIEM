@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Database, AlertTriangle, Globe, Activity, BarChart2, Lock, FileText, Download, RefreshCw } from "lucide-react";
+import { Check, ChevronDown, Database, AlertTriangle, Globe, Activity, BarChart2, Lock,RefreshCw } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { lecteurApi, type LecteurDashboardData } from "../../api/lecteur";
 
@@ -61,8 +61,6 @@ function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void
 export default function LecteurDashboardScreen() {
   const [view, setView] = useState<"tech" | "audit">("tech");
   const [viewOpen, setViewOpen] = useState(false);
-  const [exportState, setExportState] = useState<"pdf" | "csv" | null>(null);
-  const [exportDone, setExportDone] = useState<"pdf" | "csv" | null>(null);
   const [data, setData] = useState<LecteurDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,14 +81,14 @@ export default function LecteurDashboardScreen() {
     load();
   }, []);
 
-  const handleExport = (type: "pdf" | "csv") => {
+  /*const handleExport = (type: "pdf" | "csv") => {
     setExportState(type);
     setTimeout(() => {
       setExportState(null);
       setExportDone(type);
       setTimeout(() => setExportDone(null), 3500);
     }, 800);
-  };
+  };*/
 
   if (loading) {
     return <div className="p-5 text-xs font-mono text-muted-foreground">Chargement depuis PostgreSQL...</div>;
@@ -110,12 +108,6 @@ export default function LecteurDashboardScreen() {
 
   return (
     <div className="p-5 space-y-4 pb-10">
-      {exportDone && (
-        <div className="fixed top-4 right-4 z-50 flex items-center gap-2.5 bg-emerald-500/15 border border-emerald-500/30 rounded-xl px-4 py-3 shadow-2xl backdrop-blur-sm">
-          <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-          <p className="text-xs font-mono text-emerald-300">{exportDone === "pdf" ? "Rapport PDF" : "Export CSV"} - preparation terminee</p>
-        </div>
-      )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
@@ -253,30 +245,6 @@ export default function LecteurDashboardScreen() {
         </div>
       )}
 
-      <div className="bg-card border border-amber-500/20 rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <FileText className="w-4 h-4 text-amber-400" />
-          <p className="text-sm font-semibold text-foreground">Generation de rapports</p>
-          <span className="text-[10px] font-mono text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded ml-1">Lecture seule</span>
-        </div>
-        <p className="text-[11px] text-muted-foreground font-mono mb-4">Les exports utilisent les donnees actuellement chargees depuis PostgreSQL et Elasticsearch.</p>
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => handleExport("pdf")} disabled={!!exportState} className="flex items-center gap-3 p-4 bg-red-500/8 border border-red-500/20 hover:border-red-500/40 rounded-xl transition-all disabled:opacity-60 disabled:cursor-wait text-left">
-            <FileText className="w-5 h-5 text-red-400" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Rapport PDF Periodique</p>
-              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{exportState === "pdf" ? "Preparation..." : "Donnees API chargees"}</p>
-            </div>
-          </button>
-          <button onClick={() => handleExport("csv")} disabled={!!exportState} className="flex items-center gap-3 p-4 bg-emerald-500/8 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl transition-all disabled:opacity-60 disabled:cursor-wait text-left">
-            <Download className="w-5 h-5 text-emerald-400" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Exporter CSV / Excel</p>
-              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{exportState === "csv" ? "Preparation..." : "Donnees API chargees"}</p>
-            </div>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
