@@ -79,6 +79,7 @@ export default function RulesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [updatingRuleId, setUpdatingRuleId] = useState<string | null>(null);
 
   const [selectedMitre, setSelectedMitre] = useState<keyof typeof MITRE_TEMPLATES>("T1110");
   const [form, setForm] = useState({ name: "", sev: "WARNING", threshold: 5, window: 60, desc: "", playbook: "Bloquer IP via Pare-feu" });
@@ -125,6 +126,14 @@ export default function RulesScreen() {
       .catch((e: any) => alert(e instanceof Error ? e.message : "Erreur lors de la sauvegarde"));
   };
 
+  const toggleRuleStatus = (ruleId: string, currentState: boolean) => {
+    setUpdatingRuleId(ruleId);
+    adminApi.updateRuleStatus(ruleId, !currentState)
+      .then(() => refreshRules())
+      .catch((e: any) => alert(e instanceof Error ? e.message : "Impossible de mettre à jour le statut de la règle"))
+      .finally(() => setUpdatingRuleId(null));
+  };
+
   if (error && !rules.length) {
     return <div className="p-6 text-red-400 font-mono text-sm">Erreur : {error}</div>;
   }
@@ -162,10 +171,11 @@ export default function RulesScreen() {
                   <h4 className="text-sm font-semibold text-foreground truncate">{rule.name}</h4>
                 </div>
                 <button
-                  disabled
-                  title="Lecture seule — état depuis PostgreSQL"
-                  className={`relative w-9 h-5 rounded-full shrink-0 mt-1 cursor-not-allowed ${rule.on ? "bg-emerald-500/30 border border-emerald-500/50" : "bg-secondary border border-border"}`}>
-                  <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full ${rule.on ? "left-4.5 bg-emerald-400 shadow shadow-emerald-500/50" : "left-0.5 bg-slate-500"}`} />
+                  onClick={() => toggleRuleStatus(rule.id, rule.on)}
+                  disabled={updatingRuleId === rule.id}
+                  title={rule.on ? "Désactiver la règle" : "Activer la règle"}
+                  className={`relative w-9 h-5 rounded-full shrink-0 mt-1 transition-all ${rule.on ? "bg-emerald-500/30 border border-emerald-500/50" : "bg-secondary border border-border"} ${updatingRuleId === rule.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}>
+                  <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full transition-all ${rule.on ? "left-4.5 bg-emerald-400 shadow shadow-emerald-500/50" : "left-0.5 bg-slate-500"}`} />
                 </button>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed mb-3">{rule.desc}</p>
@@ -189,6 +199,11 @@ export default function RulesScreen() {
                 </button>
                 <button className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono text-red-400/70 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-md transition-colors">
                   <Trash2 className="w-2.5 h-2.5" /> Supprimer
+                </button>
+                <button onClick={() => toggleRuleStatus(rule.id, rule.on)}
+                  disabled={updatingRuleId === rule.id}
+                  className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono text-slate-300 hover:text-foreground bg-slate-500/10 hover:bg-slate-500/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait">
+                  {rule.on ? "Désactiver" : "Activer"}
                 </button>
               </div>
             </div>

@@ -3,6 +3,17 @@ import { Terminal, RefreshCw, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { adminApi, type LogSearchData } from "../../api/admin";
 
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 function ChartTip({ active, payload, label }: { active?: boolean; payload?: { stroke?: string; fill?: string; color?: string; name?: string; value?: number; dataKey?: string }[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
@@ -32,6 +43,18 @@ export default function SearchScreen() {
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Erreur"))
       .finally(() => setLoading(false));
+  };
+
+  const exportCsv = (results: LogSearchData["results"]) => {
+    if (!results.length) {
+      alert("Aucun résultat à exporter");
+      return;
+    }
+    const rows = [
+      ["Horodatage", "Source", "Destination", "Type d'événement", "Utilisateur", "Détail", "Sévérité"],
+      ...results.map((row) => [row.ts, row.src, row.dst, row.event, row.user, row.detail, row.sev]),
+    ];
+    downloadCsv("search-results.csv", rows);
   };
 
   useEffect(() => {
@@ -104,7 +127,7 @@ export default function SearchScreen() {
               <p className="text-sm font-medium">
                 Résultats <span className="text-muted-foreground text-[11px] font-mono">— {data.results.length} sur {data.stats.total_events.toLocaleString("fr-FR")}</span>
               </p>
-              <button className="text-[11px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors">
+              <button onClick={() => exportCsv(data.results)} className="text-[11px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors">
                 <RefreshCw className="w-3 h-3" /> Export CSV
               </button>
             </div>

@@ -26,6 +26,18 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function patchJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await authFetch(`${API_BASE}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(await errorMessage(res, path));
+  }
+  return res.json() as Promise<T>;
+}
+
 export type DashboardData = {
   stats: {
     active_incidents: number;
@@ -180,8 +192,10 @@ export const adminApi = {
   users: () => fetchJson<UserRow[]>("/users"),
   createUser: (payload: CreateUserPayload) =>
     postJson<UserRow>("/users", payload),
-  createRule: (payload: CreateRulePayload)=>
-    postJson <RuleRow>("/rules", payload),
+  createRule: (payload: CreateRulePayload) =>
+    postJson<RuleRow>("/rules", payload),
+  updateRuleStatus: (ruleId: string, is_active: boolean) =>
+    patchJson<{ id: string; is_active: boolean }>(`/rules/${ruleId}/status`, { is_active }),
   updateIncidentIsDeleted: (id: string) =>
     postJson<IncidentRow>(`/incidents/${id}/delete`, { is_deleted: true }),
   rules: () => fetchJson<RuleRow[]>("/rules"),
