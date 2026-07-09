@@ -187,7 +187,7 @@ export default function SOCSearchScreen() {
     setInspectEvent(row);
   };
 
-  // Alertes : filtrage client, car pas encore branchées sur une API
+  // Alertes : donnees API PostgreSQL, filtrees cote client selon le pivot actif.
   const filteredAlerts = useMemo(() => {
     if (!pivot) return alerts;
     if (pivot.field === "src") return alerts.filter((a) => a.sourceIp === pivot.value);

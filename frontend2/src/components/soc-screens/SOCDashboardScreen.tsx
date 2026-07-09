@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Activity, Globe, MapPin, ChevronDown, Check, Radio } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { getStoredUser } from "../../api/auth";
 import { socApi, type SocDashboardData } from "../../api/soc";
 
 function SevBadge({ s }: { s: string }) {
@@ -37,6 +38,7 @@ export default function SOCDashboardScreen() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState<SocDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const user = getStoredUser();
 
   useEffect(() => {
     setLoading(true);
@@ -131,7 +133,7 @@ export default function SOCDashboardScreen() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-xl px-3 py-2">
             <MapPin className="w-3 h-3 text-blue-400" />
-            <span className="text-[11px] font-mono text-blue-300">Périmètre assigné : <strong>Filiale Europe</strong></span>
+            <span className="text-[11px] font-mono text-blue-300">Périmètre assigné : <strong>{user?.scope ?? "SOC"}</strong></span>
           </div>
           <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

@@ -1,26 +1,10 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Send, ShieldAlert, UserCheck } from "lucide-react";
+import { getStoredUser } from "../../api/auth";
 import { socApi, type SocAlertRow, type SocIncidentActionRow, type SocIncidentRow, type SocUserRow } from "../../api/soc";
 
 const INIT_STATUSES: Record<string, string> = {};
 
-// ============================================================
-// DONNÉES STATIQUES — alertes ayant déclenché chaque incident
-// (pas d'endpoint backend pour ça pour l'instant, mock en attendant)
-// ============================================================
-
-/*
-  "INC-A1B2C3D4": [
-    { id: "ALT-7F21", title: "Détection Force Brute — 5 échecs en 60s", sev: "HIGH", confidence: 85, created_at: "2026-07-02T11:52:55" },
-  ],
-  "INC-E5F6G7H8": [
-    { id: "ALT-9C44", title: "Volume anormal de FILE_DOWNLOAD", sev: "CRITICAL", confidence: 92, created_at: "2026-07-02T09:16:20" },
-    { id: "ALT-9C45", title: "Transfert sortant vers IP externe non référencée", sev: "CRITICAL", confidence: 88, created_at: "2026-07-02T09:17:05" },
-  ],
-  "INC-M3N4O5P6": [
-    { id: "ALT-3B10", title: "Connexions internes vers 3 hôtes distincts en moins de 2 minutes", sev: "HIGH", confidence: 78, created_at: "2026-07-02T08:40:40" },
-  ],
-*/
 
 function SevBadge({ s }: { s: string }) {
   const colors: Record<string, string> = {
@@ -57,14 +41,8 @@ function StatusChip({ s }: { s: string }) {
 }
 
 function storedUserHint() {
-  const raw = localStorage.getItem("user");
-  if (!raw) return { username: "edgar.stiles" };
-  try {
-    const parsed = JSON.parse(raw) as { id?: string; username?: string; name?: string };
-    return { id: parsed.id, username: parsed.username ?? parsed.name ?? "edgar.stiles" };
-  } catch {
-    return { username: raw || "edgar.stiles" };
-  }
+  const user = getStoredUser();
+  return { id: user?.id, username: user?.username ?? user?.name };
 }
 
 function formatActionTime(value: string) {
@@ -101,7 +79,6 @@ export default function SOCIncidentsScreen() {
         const analyst = userData.find((user) => user.id === hint.id)
           ?? userData.find((user) => user.username === hint.username)
           ?? userData.find((user) => user.role === "Analyste")
-          ?? userData.find((user) => user.role === "Admin")
           ?? null;
         setCurrentAnalyst(analyst);
         setError(null);
@@ -385,7 +362,7 @@ export default function SOCIncidentsScreen() {
               </div>
             </div>
 
-            {/* Alertes à l'origine de l'incident — données statiques */}
+            {/* Alertes à l'origine de l'incident — PostgreSQL */}
             <div className="bg-card border border-border rounded-xl p-4">
               <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <ShieldAlert className="w-3.5 h-3.5 text-orange-400" />

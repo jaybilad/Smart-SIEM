@@ -3,7 +3,7 @@ import { UserPlus, Edit2, Trash2, X, Eye, EyeOff, Loader2, Save } from "lucide-r
 import { adminApi, type CreateUserPayload, type UserRow } from "../../api/admin";
 
 const ROLES = ["Admin", "Analyste", "Lecteur"];
-const SCOPES = ["Global", "RH", "Filiale Europe", "Dev", "Prod"];
+const SCOPES = ["Global", "Reseau_Interne", "Serveurs_Critiques", "Frontiere"];
 
 const INITIAL_FORM = {
   username: "",
