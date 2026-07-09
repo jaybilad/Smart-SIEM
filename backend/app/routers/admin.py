@@ -331,6 +331,27 @@ class RuleCreate(BaseModel):
         return value
 
 
+class RuleStatusUpdate(BaseModel):
+    is_active: bool
+
+
+@router.patch("/rules/{rule_id}/status")
+def update_rule_status(rule_id: str, payload: RuleStatusUpdate, request: Request):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM correlation_rules WHERE id = %s", [rule_id])
+        if not cur.fetchone():
+            raise HTTPException(404, "Règle de corrélation introuvable")
+        cur.execute(
+            "UPDATE correlation_rules SET is_active = %s WHERE id = %s RETURNING id, is_active",
+            [payload.is_active, rule_id],
+        )
+        row = cur.fetchone()
+        conn.commit()
+    set_audit_action(request, f"{'Activation' if row['is_active'] else 'Désactivation'} de la règle de corrélation {row['id']}")
+    return {"id": str(row["id"]), "is_active": row["is_active"]}
+
+
 @router.get("/dashboard")
 def dashboard():
     with get_conn() as conn:
@@ -703,8 +724,22 @@ def create_user(payload: UserCreate, request: Request):
                 updated_at
             )
             VALUES (%s, 'USER', %s, %s, %s, 0, 0, now(), now())
+            RETURNING id
             """,
             [payload.username, payload.email, target_status, criticality],
+        )
+        target_row = cur.fetchone()
+        cur.execute(
+            """
+            INSERT INTO ueba_baselines (
+                target_id,
+                allowed_start_time,
+                allowed_end_time,
+                normal_daily_volume_mb
+            )
+            VALUES (%s, %s, %s, %s)
+            """,
+            [target_row["id"], "09:00", "18:00", 50.00],
         )
         conn.commit()
     set_audit_action(request, f"Creation du compte utilisateur '{row['username']}' et de sa cible surveillee")
@@ -735,7 +770,7 @@ def rules():
                 "id": str(r["id"]),
                 "name": r["rule_name"],
                 "sev": r["severity_enum"],
-                "on": True,
+                "on": r["is_active"],
                 "threshold": condition.get("threshold") or condition.get("unique_ports_threshold") or "-",
                 "window": condition.get("time_window_seconds") or "-",
                 "desc": r.get("rule_condition") or "",
